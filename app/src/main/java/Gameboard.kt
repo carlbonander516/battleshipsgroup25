@@ -28,7 +28,7 @@ fun GameboardGrid() {
             ) {
                 for (j in 0 until size) {
                     Text(
-                        text = ".",
+                        text = "",
                         color = Color.Black,
                         modifier = Modifier
                             .size(32.dp)
@@ -40,4 +40,3 @@ fun GameboardGrid() {
         }
     }
 }
-
