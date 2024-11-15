@@ -1,7 +1,7 @@
 package com.example.battleshipsgroup25
 
 import GameModes
-import com.example.battleshipsgroup25.screens.IntroScreen
+import IntroScreen
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent

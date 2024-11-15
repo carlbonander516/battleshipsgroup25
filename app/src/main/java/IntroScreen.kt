@@ -1,5 +1,4 @@
 // IntroScreen.kt (updated)
-package com.example.battleshipsgroup25.screens
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
@@ -39,7 +38,7 @@ fun IntroScreen(navController: NavController) {
 
         // Button positioned at the bottom center of the screen
         Button(
-            onClick = { navController.navigate("GameModes") },
+            onClick = { navController.navigate("game_modes") },
             modifier = Modifier
                 .align(Alignment.BottomCenter) // Aligns button at the bottom center of the Box
                 .padding(bottom = 275.dp) // Adds padding from the bottom edge
@@ -47,7 +46,7 @@ fun IntroScreen(navController: NavController) {
             Text("Game modes")
         }
         Button(
-            onClick = { navController.navigate("") },
+            onClick = { /* TODO: Add route when created */ },
             modifier = Modifier
                 .align(Alignment.BottomCenter) // Aligns button at the bottom center of the Box
                 .padding(bottom = 225.dp) // Adds padding from the bottom edge
@@ -55,7 +54,7 @@ fun IntroScreen(navController: NavController) {
             Text("Settings")
         }
         Button(
-            onClick = { navController.navigate("") },
+            onClick = { /* TODO: Add route when created */ },
             modifier = Modifier
                 .align(Alignment.BottomCenter) // Aligns button at the bottom center of the Box
                 .padding(bottom = 175.dp) // Adds padding from the bottom edge
