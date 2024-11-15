@@ -48,7 +48,7 @@ fun GameModes(navController: NavController) {
             Text("Online")
         }
         Button(
-            onClick = { /* TODO: Add route for "Offline" */ },
+            onClick = { navController.navigate("game_board") },
             modifier = Modifier
                 .align(Alignment.BottomCenter) // Aligns button at the bottom center of the Box
                 .padding(bottom = 225.dp) // Adds padding from the bottom edge

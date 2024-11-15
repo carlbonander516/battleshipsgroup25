@@ -23,6 +23,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     composable("intro") { IntroScreen(navController) }
                     composable("game_modes") { GameModes(navController) }
+                    composable("game_board") { Gameboard(navController) }
                 }
             }
         }
