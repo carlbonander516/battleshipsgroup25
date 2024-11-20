@@ -35,8 +35,17 @@ class RuleEngine(private val boardSize: Int, private val ships: List<Ship>) {
     }
 
     companion object {
-        fun handleCellClick(i: Int, j: Int) {
+        private var ruleEngineInstance: RuleEngine? = null
 
+        // Initialize or get the existing instance
+        fun initialize(boardSize: Int, ships: List<Ship>) {
+            ruleEngineInstance = RuleEngine(boardSize, ships)
+        }
+
+        // Forward cell click to the instance
+        fun handleCellClick(row: Int, col: Int) {
+            ruleEngineInstance?.handleCellClick(row, col) ?:
+            println("RuleEngine is not initialized!")
         }
     }
 }

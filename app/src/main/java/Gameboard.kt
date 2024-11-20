@@ -4,6 +4,7 @@ package com.example.battleshipsgroup25
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,10 +27,12 @@ import androidx.navigation.NavHostController
 
 @Composable
 fun Gameboard(navController: NavHostController) {
-    // Create an instance of ShipManager
     val boardSize = 10
-    val shipManager = remember { ShipManager(boardSize) } // Remember keeps it consistent across recompositions
-    val ships = shipManager.placeShips() // Place ships on the board
+    val shipManager = remember { ShipManager(boardSize) }
+    val ships = shipManager.placeShips()
+
+    // Initialize RuleEngine
+    RuleEngine.initialize(boardSize, ships)
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -85,10 +88,11 @@ fun Grid(size: Int) {
                         modifier = Modifier
                             .size(32.dp)
                             .border(2.dp, Color.Black) // Black border
-                            .background(Color.Transparent), // Transparent background
-                            .clickable { // Pass the row and column index to the RuleEngine
-                                RuleEngine.handleCellClick(i, j) },
-                        style = MaterialTheme.typography.bodyLarge
+                            .background(Color.Transparent) // Transparent background
+                            .clickable {
+                                RuleEngine.handleCellClick(i, j) // Correctly call the RuleEngine
+                            },
+                        style = MaterialTheme.typography.bodyLarge // Apply style correctly
                     )
                 }
             }
