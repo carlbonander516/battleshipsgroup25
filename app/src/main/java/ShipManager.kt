@@ -33,28 +33,50 @@ class ShipManager(private val boardSize: Int) {
         return ships
     }
 
-    // Check if a ship can be placed at the given position
-    private fun canPlaceShip(ship: Ship, startRow: Int, startCol: Int, direction: String): Boolean {
-        val positions = calculatePositions(ship, startRow, startCol, direction)
+    fun canPlaceShip(ship: Ship, startRow: Int, startCol: Int, direction: String): Boolean {
+        val newPositions = calculatePositions(ship, startRow, startCol, direction)
 
-        // Validate positions are within bounds and do not overlap existing ships
-        if (positions.any { it.first !in 0 until boardSize || it.second !in 0 until boardSize }) {
+        // Check bounds and no overlap
+        if (newPositions.any { it.first !in 0 until boardSize || it.second !in 0 until boardSize }) {
             return false
         }
-
-        if (positions.any { pos -> ships.any { other -> pos in other.positions } }) {
+        val otherShipPositions = ships.filter { it != ship }.flatMap { it.positions }
+        if (newPositions.any { it in otherShipPositions }) {
             return false
         }
-
+        // Check for 1-tile spacing (adjust as needed)
+        val adjacentPositions = newPositions.flatMap { (r, c) ->
+            listOf(
+                Pair(r - 1, c), Pair(r + 1, c), Pair(r, c - 1), Pair(r, c + 1),
+                Pair(r - 1, c - 1), Pair(r - 1, c + 1), Pair(r + 1, c - 1), Pair(r + 1, c + 1)
+            )
+        }
+        if (adjacentPositions.any { it in otherShipPositions }) {
+            return false
+        }
         return true
     }
 
-    // Calculate the positions a ship will occupy based on its direction
+
+    private var selectedShip: Ship? = null
+    fun selectShip(ship: Ship) {
+        selectedShip = ship
+    }
+    fun moveSelectedShip(newStartRow: Int, newStartCol: Int, direction: String): Boolean {
+        selectedShip?.let { ship ->
+            if (canPlaceShip(ship, newStartRow, newStartCol, direction)) {
+                ship.positions = calculatePositions(ship, newStartRow, newStartCol, direction)
+                return true
+            }
+        }
+        return false
+    }
+
+
     private fun calculatePositions(ship: Ship, startRow: Int, startCol: Int, direction: String): List<Pair<Int, Int>> {
         return when (direction) {
             "H" -> (0 until ship.length).map { Pair(startRow, startCol + it) }
             "V" -> (0 until ship.length).map { Pair(startRow + it, startCol) }
             else -> emptyList()
         }
-    }
-}
+    }}

@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,55 +25,95 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+
 
 @Composable
 fun Gameboard(navController: NavHostController) {
     val boardSize = 10
     val shipManager = remember { ShipManager(boardSize) }
-    val ships = shipManager.placeShips()
-
-    // Initialize RuleEngine
-    RuleEngine.initialize(boardSize, ships)
+    val ships = remember { mutableStateListOf<Ship>(*shipManager.placeShips().toTypedArray()) } // Place ships only once
+    val selectedShip = remember { mutableStateOf<Ship?>(null) } // Track the selected ship
 
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
-        // Background image filling the entire screen with transparency
+        // Background image
         Image(
             painter = painterResource(id = R.drawable.backgroundgame),
             contentDescription = null,
             modifier = Modifier
                 .fillMaxSize()
-                .alpha(0.5f), // 50% transparency
-            contentScale = ContentScale.Crop // Fills screen without borders
+                .alpha(0.5f),
+            contentScale = ContentScale.Crop
         )
 
-        // Main Column to hold both grids and ship info
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp), // Add some padding if necessary
+                .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.SpaceBetween // Space out the two grids evenly
+            verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Text to display number of ships left to place
+            // Text to display the selected ship status
             Text(
-                text = "Ships left to place: ${ships.size}",
+                text = "Ships left to place: ${ships.size - ships.count { it.positions.isNotEmpty() }}",
                 color = Color.White,
                 style = MaterialTheme.typography.bodyLarge
-                )
+            )
 
-            // Top Grid
-            Grid(size = boardSize)
+            // Top Grid (static for now)
+           Grid(
+                size = boardSize,
+                ships = ships,
+                selectedShip = selectedShip,
+                onCellClick = { row, col ->
+                    // Select a ship if it exists at the clicked position
+                    val clickedShip = ships.find { ship -> ship.positions.contains(Pair(row, col)) }
+                    if (clickedShip != null) {
+                        shipManager.selectShip(clickedShip)
+                        selectedShip.value = clickedShip
+                    }
+                },
+                onCellLongClick = { row, col ->
+                    // Example: Implement movement here if needed
+                }
+            )
 
-            // Bottom Grid
-            Grid(size = boardSize)
+// Bottom Grid
+            Grid(
+                size = boardSize,
+                ships = ships,
+                selectedShip = selectedShip,
+                onCellClick = { row, col ->
+                    if (selectedShip.value != null) {
+                        // Try to move the selected ship to the new position
+                        val success = shipManager.moveSelectedShip(row, col, "H") // Example: Default to horizontal
+                        if (success) {
+                            selectedShip.value = null // Deselect after move
+                        } else {
+                            // Provide feedback if move fails (optional)
+                            println("Cannot place ship at this position")
+                        }
+                    }
+                },
+                onCellLongClick = { _, _ -> } // Add a no-op for onCellLongClick to match Grid parameters
+            )
         }
     }
 }
 
 @Composable
-fun Grid(size: Int) {
+fun Grid(
+    size: Int,
+    ships: List<Ship>,
+    selectedShip: MutableState<Ship?>,
+    onCellClick: (Int, Int) -> Unit,
+    onCellLongClick: (Int, Int) -> Unit
+) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -82,20 +123,26 @@ fun Grid(size: Int) {
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 for (j in 0 until size) {
+                    val isShipTile = ships.any { ship -> Pair(i, j) in ship.positions }
+                    val isSelectedTile = selectedShip.value?.positions?.contains(Pair(i, j)) == true
+
                     Text(
                         text = "",
                         color = Color.Black,
                         modifier = Modifier
                             .size(32.dp)
-                            .border(2.dp, Color.Black) // Black border
-                            .background(Color.Transparent) // Transparent background
-                            .clickable {
-                                RuleEngine.handleCellClick(i, j) // Correctly call the RuleEngine
-                            },
-                        style = MaterialTheme.typography.bodyLarge // Apply style correctly
+                            .border(2.dp, if (isSelectedTile) Color.Red else Color.Black)
+                            .background(if (isShipTile) Color.DarkGray else Color.Transparent)
+                            .clickable { onCellClick(i, j) },
+                        style = MaterialTheme.typography.bodyLarge
                     )
                 }
             }
         }
     }
 }
+
+
+
+
+
