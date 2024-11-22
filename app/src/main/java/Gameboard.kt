@@ -3,6 +3,7 @@ package com.example.battleshipsgroup25
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.material3.Button
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -35,8 +36,9 @@ import androidx.compose.runtime.setValue
 fun Gameboard(navController: NavHostController) {
     val boardSize = 10
     val shipManager = remember { ShipManager(boardSize) }
-    val ships = remember { mutableStateListOf<Ship>(*shipManager.placeShips().toTypedArray()) } // Place ships only once
-    val selectedShip = remember { mutableStateOf<Ship?>(null) } // Track the selected ship
+    val playerShips = remember { mutableStateListOf<Ship>(*shipManager.placeShips().toTypedArray()) }
+    val selectedShip = remember { mutableStateOf<Ship?>(null) }
+    val currentOrientation = remember { mutableStateOf("H") } // Default orientation
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -47,64 +49,71 @@ fun Gameboard(navController: NavHostController) {
             contentDescription = null,
             modifier = Modifier
                 .fillMaxSize()
-                .alpha(0.5f),
+                .alpha(0.5f), // Restore your original alpha or remove it if not needed
             contentScale = ContentScale.Crop
         )
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
+                .padding(16.dp), // Restore original padding
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Text to display the selected ship status
             Text(
-                text = "Ships left to place: ${ships.size - ships.count { it.positions.isNotEmpty() }}",
-                color = Color.White,
+                text = "Ships left to place: ${playerShips.size - playerShips.count { it.positions.isNotEmpty() }}",
+                color = Color.White, // Keep your preferred color
                 style = MaterialTheme.typography.bodyLarge
             )
 
-            // Top Grid (static for now)
-           Grid(
-                size = boardSize,
-                ships = ships,
-                selectedShip = selectedShip,
-                onCellClick = { row, col ->
-                    // Select a ship if it exists at the clicked position
-                    val clickedShip = ships.find { ship -> ship.positions.contains(Pair(row, col)) }
-                    if (clickedShip != null) {
-                        shipManager.selectShip(clickedShip)
-                        selectedShip.value = clickedShip
-                    }
+            // Orientation Toggle Button
+            Button(
+                onClick = {
+                    currentOrientation.value = if (currentOrientation.value == "H") "V" else "H"
                 },
-                onCellLongClick = { row, col ->
-                    // Example: Implement movement here if needed
-                }
-            )
+                modifier = Modifier.padding(8.dp) // Restore button placement as needed
+            ) {
+                Text("Toggle Orientation: ${if (currentOrientation.value == "H") "Horizontal" else "Vertical"}")
+            }
 
-// Bottom Grid
+            // Grids (unchanged)
             Grid(
                 size = boardSize,
-                ships = ships,
+                ships = emptyList(),
+                selectedShip = remember { mutableStateOf(null) },
+                onCellClick = { row, col ->
+                    println("Shot fired at bot's grid: ($row, $col)")
+                },
+                onCellLongClick = { _, _ -> }
+            )
+            Grid(
+                size = boardSize,
+                ships = playerShips,
                 selectedShip = selectedShip,
                 onCellClick = { row, col ->
                     if (selectedShip.value != null) {
-                        // Try to move the selected ship to the new position
-                        val success = shipManager.moveSelectedShip(row, col, "H") // Example: Default to horizontal
+                        val success = shipManager.moveSelectedShip(row, col, currentOrientation.value)
                         if (success) {
-                            selectedShip.value = null // Deselect after move
+                            selectedShip.value = null
                         } else {
-                            // Provide feedback if move fails (optional)
                             println("Cannot place ship at this position")
+                        }
+                    } else {
+                        val clickedShip = playerShips.find { ship -> ship.positions.contains(Pair(row, col)) }
+                        if (clickedShip != null) {
+                            shipManager.selectShip(clickedShip)
+                            selectedShip.value = clickedShip
                         }
                     }
                 },
-                onCellLongClick = { _, _ -> } // Add a no-op for onCellLongClick to match Grid parameters
+                onCellLongClick = { _, _ -> }
             )
         }
     }
 }
+
+
+
 
 @Composable
 fun Grid(
