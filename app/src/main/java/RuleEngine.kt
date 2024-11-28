@@ -1,25 +1,33 @@
-package com.example.battleshipsgroup25
+import com.example.battleshipsgroup25.Ship
+
+// RuleEngine.kt
 
 class RuleEngine(private val boardSize: Int, private val ships: List<Ship>) {
 
-    // Grid to keep track of cell clicks (can be extended to store hit/miss state)
-    private val clickedCells = mutableSetOf<Pair<Int, Int>>()
+    // Track the results of shots (hit or miss) by storing the cell coordinates and the outcome
+    private val shotResults = mutableMapOf<Pair<Int, Int>, Boolean>() // True for hit, False for miss
 
-    // Function to handle a cell click
-    fun handleCellClick(row: Int, col: Int) {
-        // Record that the cell was clicked
-        clickedCells.add(Pair(row, col))
-
-        // Handle the game logic, for example, checking if a ship is in this cell
-        // Here you can call methods that check whether this cell is part of a ship's position
+    // Function to handle a cell click and determine whether it's a hit or miss
+    fun handleCellClick(row: Int, col: Int): Boolean {
         println("Cell clicked at: ($row, $col)")
 
-        // For example, checking if there's a ship on the clicked cell:
+        // If the shot was already taken, return the previous result
+        shotResults[row to col]?.let {
+            return it // Return true if it's a hit, false if it's a miss
+        }
+
+        // Check if the shot hits a ship
         val shipHit = checkShipHit(row, col)
         if (shipHit != null) {
+            // Mark this cell as a hit
+            shotResults[row to col] = true
             println("Hit a ship: ${shipHit.name}")
+            return true
         } else {
+            // Mark this cell as a miss
+            shotResults[row to col] = false
             println("Missed!")
+            return false
         }
     }
 
@@ -43,9 +51,17 @@ class RuleEngine(private val boardSize: Int, private val ships: List<Ship>) {
         }
 
         // Forward cell click to the instance
-        fun handleCellClick(row: Int, col: Int) {
-            ruleEngineInstance?.handleCellClick(row, col) ?:
-            println("RuleEngine is not initialized!")
+        fun handleCellClick(row: Int, col: Int): Boolean {
+            return ruleEngineInstance?.handleCellClick(row, col)
+                ?: run {
+                    println("RuleEngine is not initialized!")
+                    false
+                }
+        }
+
+        // Get shot result for a specific cell (hit or miss)
+        fun getShotResult(row: Int, col: Int): Boolean? {
+            return ruleEngineInstance?.shotResults?.get(Pair(row, col))
         }
     }
 }
