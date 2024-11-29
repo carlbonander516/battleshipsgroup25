@@ -1,5 +1,6 @@
 // GameBoard.kt
-package com.example.battleshipsgroup25
+import android.util.Log
+import com.example.battleshipsgroup25.RuleEngine
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -30,19 +31,78 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.example.battleshipsgroup25.Bot
+import com.example.battleshipsgroup25.R
 import com.example.battleshipsgroup25.Ship
+import com.example.battleshipsgroup25.ShipManager
 
 
 @Composable
 fun Gameboard(navController: NavHostController) {
+
+    // Separate managers for player and bot
     val boardSize = 10
     val shipManager = remember { ShipManager(boardSize) }
     val playerShips = remember { mutableStateListOf<Ship>(*shipManager.placeShips().toTypedArray()) }
+    val botShips = remember { mutableStateListOf<Ship>(*shipManager.placeShips().toTypedArray()) }
+
+        // Debugging: Log final ship placements
+    Log.d("ShipPlacement", "Player Ships: ${playerShips.map { it.name to it.positions }}")
+    Log.d("ShipPlacement", "Bot Ships: ${botShips.map { it.name to it.positions }}")
+
+        // UI Logic Here...
     val selectedShip = remember { mutableStateOf<Ship?>(null) }
-    val currentOrientation = remember { mutableStateOf("H") } // Default orientation
-    val gameStarted = remember { mutableStateOf(false) } // Tracks if the game has started
-    val bot = remember { Bot(boardSize) } // Initialize the bot
-    val botGridHits = remember { mutableStateListOf<Pair<Int, Int>>() } // Tracks hits on bot's grid
+    val currentOrientation = remember { mutableStateOf("H") }
+    val gameStarted = remember { mutableStateOf(false) }
+    RuleEngine.initialize(boardSize, botShips.toList())
+    val botGridHits = remember { mutableStateListOf<Pair<Int, Int>>() }
+    val botGridMisses = remember { mutableStateListOf<Pair<Int, Int>>() }
+    val turn = remember { mutableStateOf("Player") }
+    val playerGridHits = remember { mutableStateListOf<Pair<Int, Int>>() } // Bot's successful hits
+    val playerGridMisses = remember { mutableStateListOf<Pair<Int, Int>>() } // Bot's missed attacks
+
+
+    fun botAttack(
+        boardSize: Int,
+        playerGridHits: MutableList<Pair<Int, Int>>,
+        playerGridMisses: MutableList<Pair<Int, Int>>
+    ): Triple<Int, Int, Boolean>? {
+        // Randomly select a target cell
+        val availableCells = (0 until boardSize).flatMap { row ->
+            (0 until boardSize).map { col -> Pair(row, col) }
+        }.filter { it !in playerGridHits && it !in playerGridMisses }
+        if (availableCells.isEmpty()) {
+            println("Bot has no cells left to attack!")
+            return null
+        }
+        val target = availableCells.random()
+        val (row, col) = target
+        // Simulate a hit or miss
+        val hit = playerShips.any { ship -> target in ship.positions }
+        if (hit) {
+            playerGridHits.add(target)
+        } else {
+            playerGridMisses.add(target)
+        }
+        return Triple(row, col, hit)
+    }
+
+    fun botTurn(
+        boardSize: Int,
+        playerGridHits: MutableList<Pair<Int, Int>>,
+        playerGridMisses: MutableList<Pair<Int, Int>>
+    ) {
+        val result = botAttack(boardSize, playerGridHits, playerGridMisses)
+        if (result != null) {
+            val (row, col, hit) = result
+            if (hit) {
+                println("Bot hit a player's ship at ($row, $col)!")
+                botTurn(boardSize, playerGridHits, playerGridMisses) // Continue bot turn on hit
+            } else {
+                println("Bot missed at ($row, $col).")
+            }
+        }
+    }
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -87,40 +147,42 @@ fun Gameboard(navController: NavHostController) {
                 }
             } else {
                 Text(
-                    text = "Player 1's Turn!",
+                    text = "Turn: ${turn.value}",
                     color = Color.White,
                     style = MaterialTheme.typography.bodyLarge
                 )
             }
-
-            // Grids
-            // Bot's grid for Player 1 to attack
+            //bot grid
             Grid(
                 size = boardSize,
-                ships = emptyList(), // Bot's ships are always hidden
+                ships = botShips, // Don't show bot's ships
                 selectedShip = remember { mutableStateOf(null) },
                 onCellClick = { row, col ->
-                    if (gameStarted.value && Pair(row, col) !in botGridHits) {
-                        botGridHits.add(Pair(row, col)) // Mark the clicked cell as hit
-                        val hit = RuleEngine.handleCellClick(row, col) // Use RuleEngine to handle the shot
+                    if (gameStarted.value && Pair(row, col) !in botGridHits && Pair(row, col) !in botGridMisses) {
+                        val hit = RuleEngine.handleCellClick(row, col)
                         if (hit) {
-                            println("Player 1 hit a ship at ($row, $col)!")
+                            botGridHits.add(Pair(row, col))
+                            println("Player 1 hit a bot ship at ($row, $col)!")
                         } else {
-                            println("Player 1 missed!")
+                            botGridMisses.add(Pair(row, col))
+                            println("Player 1 missed at ($row, $col)!")
+                            botTurn(boardSize, playerGridHits, playerGridMisses) // Pass turn to bot
                         }
                     }
                 },
                 onCellLongClick = { _, _ -> },
-                highlights = botGridHits // Highlight cells clicked by the player
+                highlights = botGridHits,
+                misses = botGridMisses,
+                gameStarted = gameStarted.value
             )
 
-            // Player's grid for ship placement
+            // Player's grid (for bot to attack)
             Grid(
                 size = boardSize,
                 ships = playerShips,
                 selectedShip = selectedShip,
                 onCellClick = { row, col ->
-                    if (!gameStarted.value) {
+                    if (!gameStarted.value) { // Allow interaction before the game starts
                         if (selectedShip.value != null) {
                             val success = shipManager.moveSelectedShip(row, col, currentOrientation.value)
                             if (success) {
@@ -137,8 +199,12 @@ fun Gameboard(navController: NavHostController) {
                         }
                     }
                 },
-                onCellLongClick = { _, _ -> }
+                onCellLongClick = { _, _ -> },
+                highlights = emptyList(),
+                misses = playerGridMisses,
+                gameStarted = false // Always allow ship visibility
             )
+
         }
     }
 }
@@ -152,20 +218,21 @@ fun Grid(
     selectedShip: MutableState<Ship?>,
     onCellClick: (Int, Int) -> Unit,
     onCellLongClick: (Int, Int) -> Unit,
-    highlights: List<Pair<Int, Int>> = emptyList() // New parameter to track clicked cells
+    highlights: List<Pair<Int, Int>> = emptyList(),
+    misses: List<Pair<Int, Int>> = emptyList(),  // Add misses
+    gameStarted: Boolean                         // Add gameStarted
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
         for (i in 0 until size) {
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 for (j in 0 until size) {
                     val isShipTile = ships.any { ship -> Pair(i, j) in ship.positions }
                     val isSelectedTile = selectedShip.value?.positions?.contains(Pair(i, j)) == true
                     val isHit = highlights.contains(Pair(i, j))
+                    val isMiss = misses.contains(Pair(i, j))
 
                     Box(
                         modifier = Modifier
@@ -173,9 +240,10 @@ fun Grid(
                             .border(2.dp, if (isSelectedTile) Color.Red else Color.Black)
                             .background(
                                 when {
-                                    isHit -> Color.Red // Cell hit by Player 1
-                                    isShipTile -> Color.DarkGray // Ship tiles
-                                    else -> Color.Transparent
+                                    isHit -> Color.Red          // Hit cell
+                                    isMiss -> Color.Blue        // Missed cell
+                                    isShipTile && !gameStarted -> Color.DarkGray // Show ships during setup only
+                                    else -> Color.Transparent   // Empty cell
                                 }
                             )
                             .clickable { onCellClick(i, j) }
@@ -185,9 +253,3 @@ fun Grid(
         }
     }
 }
-
-
-
-
-
-
