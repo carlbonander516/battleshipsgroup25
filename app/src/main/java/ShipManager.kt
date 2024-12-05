@@ -4,7 +4,6 @@ import android.util.Log
 
 data class Ship(val name: String, val length: Int, var positions: List<Pair<Int, Int>> = emptyList())
 
-
 class ShipManager(private val boardSize: Int) {
 
     private val ships = mutableListOf<Ship>()
@@ -36,14 +35,10 @@ class ShipManager(private val boardSize: Int) {
                 val startCol = (0 until boardSize).random()
                 val direction = listOf("H", "V").random()
 
-                Log.d("ShipPlacement", "Attempting to place ${ship.name} at ($startRow, $startCol) with direction $direction")
-                if (canPlaceShip(ship, startRow, startCol, direction)) {
+                if (canPlaceShip(ship, startRow, startCol, direction, placedShips)) {
                     ship.positions = calculatePositions(ship, startRow, startCol, direction)
                     placedShips.add(ship)
-                    Log.d("ShipPlacement", "Successfully placed ${ship.name} at ${ship.positions}")
                     placed = true
-                } else {
-                    Log.d("ShipPlacement", "Failed to place ${ship.name} at ($startRow, $startCol) with direction $direction")
                 }
                 attempts++
             }
@@ -51,57 +46,30 @@ class ShipManager(private val boardSize: Int) {
                 Log.d("ShipPlacement", "Failed to place ${ship.name} after $attempts attempts")
             }
         }
-        Log.d("ShipPlacement", "Final Ship Placements: ${placedShips.map { it.name to it.positions }}")
         return placedShips
     }
 
-
-    private fun canPlaceShip(ship: Ship, startRow: Int, startCol: Int, direction: String): Boolean {
+    private fun canPlaceShip(ship: Ship, startRow: Int, startCol: Int, direction: String, placedShips: List<Ship>): Boolean {
         val newPositions = calculatePositions(ship, startRow, startCol, direction)
-        val existingShipPositions = ships.flatMap { it.positions }
-        val adjacentPositions = newPositions.flatMap { (row, col) ->
+        val existingShipPositions = placedShips.flatMap { it.positions }
+        val adjacentPositions = existingShipPositions.flatMap { (row, col) ->
             listOf(
                 Pair(row - 1, col), Pair(row + 1, col), Pair(row, col - 1), Pair(row, col + 1),
                 Pair(row - 1, col - 1), Pair(row - 1, col + 1), Pair(row + 1, col - 1), Pair(row + 1, col + 1)
             )
-        }
-        // Debug: Log the validation process
-        Log.d("ShipPlacement", "Validating ${ship.name}: Positions=$newPositions")
-        Log.d("ShipPlacement", "Existing ship positions: $existingShipPositions")
-        Log.d("ShipPlacement", "Adjacent positions to check: $adjacentPositions")
+        }.toSet()
 
         if (newPositions.any { it.first !in 0 until boardSize || it.second !in 0 until boardSize }) {
-            Log.d("ShipPlacement", "${ship.name} is out of bounds")
-            return false
+            return false // Out of bounds
         }
         if (newPositions.any { it in existingShipPositions }) {
-            Log.d("ShipPlacement", "${ship.name} overlaps with another ship")
-            return false
+            return false // Overlaps with another ship
         }
-        if (adjacentPositions.any { it in existingShipPositions }) {
-            Log.d("ShipPlacement", "${ship.name} is too close to another ship")
-            return false
+        if (newPositions.any { it in adjacentPositions }) {
+            return false // Too close to another ship
         }
         return true
     }
-
-
-
-
-    private var selectedShip: Ship? = null
-    fun selectShip(ship: Ship) {
-        selectedShip = ship
-    }
-    fun moveSelectedShip(newStartRow: Int, newStartCol: Int, direction: String): Boolean {
-        selectedShip?.let { ship ->
-            if (canPlaceShip(ship, newStartRow, newStartCol, direction)) {
-                ship.positions = calculatePositions(ship, newStartRow, newStartCol, direction)
-                return true
-            }
-        }
-        return false
-    }
-
 
     private fun calculatePositions(ship: Ship, startRow: Int, startCol: Int, direction: String): List<Pair<Int, Int>> {
         return when (direction) {
@@ -109,5 +77,21 @@ class ShipManager(private val boardSize: Int) {
             "V" -> (0 until ship.length).map { Pair(startRow + it, startCol) } // Vertical
             else -> emptyList()
         }
-    }}
+    }
 
+    private var selectedShip: Ship? = null
+
+    fun selectShip(ship: Ship) {
+        selectedShip = ship
+    }
+
+    fun moveSelectedShip(newStartRow: Int, newStartCol: Int, direction: String): Boolean {
+        selectedShip?.let { ship ->
+            if (canPlaceShip(ship, newStartRow, newStartCol, direction, ships)) {
+                ship.positions = calculatePositions(ship, newStartRow, newStartCol, direction)
+                return true
+            }
+        }
+        return false
+    }
+}
