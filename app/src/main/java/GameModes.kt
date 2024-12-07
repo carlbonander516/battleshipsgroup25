@@ -40,7 +40,7 @@ fun GameModes(navController: NavController) {
 
         // Button positioned at the bottom center of the screen
         Button(
-            onClick = { navController.navigate("lobby") },
+            onClick = { navController.navigate("enter_username") },
             modifier = Modifier
                 .align(Alignment.BottomCenter) // Aligns button at the bottom center of the Box
                 .padding(bottom = 275.dp) // Adds padding from the bottom edge

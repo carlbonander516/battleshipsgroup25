@@ -1,23 +1,13 @@
 import android.util.Log
-import com.example.battleshipsgroup25.RuleEngine
-
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.material3.Button
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -26,23 +16,26 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import com.example.battleshipsgroup25.R
+import com.example.battleshipsgroup25.RuleEngine
 import com.example.battleshipsgroup25.Ship
 import com.example.battleshipsgroup25.ShipManager
 
 @Composable
-fun Gameboard(navController: NavHostController) {
+fun Gameboard(navController: NavHostController, gameId: String? = null) {
+    // Use gameId if needed
+    if (gameId != null) {
+        Log.d("Gameboard", "Gameboard loaded for game: $gameId")
+        // Fetch game-related data or perform game-specific logic here
+    } else {
+        Log.d("Gameboard", "Gameboard loaded without a specific game")
+    }
 
     val boardSize = 10
     val shipManager = remember { ShipManager(boardSize) }
-    val playerShips = remember { mutableStateListOf<Ship>(*shipManager.placeShips().toTypedArray()) }
-    val botShips = remember { mutableStateListOf<Ship>(*shipManager.placeShips().toTypedArray()) }
+    val playerShips = remember { mutableStateListOf(*shipManager.placeShips().toTypedArray()) }
+    val botShips = remember { mutableStateListOf(*shipManager.placeShips().toTypedArray()) }
 
-    // Debugging: Log ship placements
     Log.d("ShipPlacement", "Player Ships: ${playerShips.map { it.name to it.positions }}")
     Log.d("ShipPlacement", "Bot Ships: ${botShips.map { it.name to it.positions }}")
 
@@ -64,7 +57,7 @@ fun Gameboard(navController: NavHostController) {
         }.filter { it !in playerGridHits && it !in playerGridMisses }
 
         if (availableCells.isEmpty()) {
-            println("Bot has no cells left to attack!")
+            Log.d("BotAttack", "Bot has no cells left to attack!")
             return null
         }
 
@@ -81,7 +74,6 @@ fun Gameboard(navController: NavHostController) {
             Log.d("BotAttack", "Miss detected at ($row, $col)")
         }
 
-        // Check for game over condition
         if (playerGridHits.size == playerShips.flatMap { it.positions }.size) {
             gameOver.value = true
             winner.value = "Bot"
@@ -97,16 +89,15 @@ fun Gameboard(navController: NavHostController) {
         if (result != null) {
             val (row, col, hit) = result
             if (hit) {
-                println("Bot hit a player's ship at ($row, $col)!")
+                Log.d("BotTurn", "Bot hit a player's ship at ($row, $col)!")
                 botTurn() // Continue bot turn on hit
             } else {
-                println("Bot missed at ($row, $col).")
+                Log.d("BotTurn", "Bot missed at ($row, $col).")
             }
         }
     }
 
     if (gameOver.value) {
-        // Game Over Screen
         Box(
             modifier = Modifier.fillMaxSize(),
             contentAlignment = Alignment.Center
@@ -126,10 +117,7 @@ fun Gameboard(navController: NavHostController) {
             }
         }
     } else {
-        // Main Game UI
-        Box(
-            modifier = Modifier.fillMaxSize()
-        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
             Image(
                 painter = painterResource(id = R.drawable.backgroundgame),
                 contentDescription = null,
@@ -153,7 +141,8 @@ fun Gameboard(navController: NavHostController) {
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Button(onClick = {
-                            currentOrientation.value = if (currentOrientation.value == "H") "V" else "H"
+                            currentOrientation.value =
+                                if (currentOrientation.value == "H") "V" else "H"
                         }) {
                             Text("Toggle Orientation: ${if (currentOrientation.value == "H") "Horizontal" else "Vertical"}")
                         }
@@ -170,7 +159,6 @@ fun Gameboard(navController: NavHostController) {
                     )
                 }
 
-                // Bot grid
                 Grid(
                     size = boardSize,
                     ships = botShips,
@@ -180,14 +168,14 @@ fun Gameboard(navController: NavHostController) {
                             val hit = RuleEngine.handleCellClick(row, col)
                             if (hit) {
                                 botGridHits.add(Pair(row, col))
-                                println("Player hit a bot ship at ($row, $col)!")
+                                Log.d("PlayerTurn", "Player hit a bot ship at ($row, $col)!")
                                 if (botGridHits.size == botShips.flatMap { it.positions }.size) {
                                     gameOver.value = true
                                     winner.value = "Player"
                                 }
                             } else {
                                 botGridMisses.add(Pair(row, col))
-                                println("Player missed at ($row, $col)!")
+                                Log.d("PlayerTurn", "Player missed at ($row, $col)!")
                                 botTurn()
                             }
                         }
@@ -198,7 +186,6 @@ fun Gameboard(navController: NavHostController) {
                     gameStarted = gameStarted.value
                 )
 
-                // Player's grid
                 Grid(
                     size = boardSize,
                     ships = playerShips,
@@ -206,14 +193,18 @@ fun Gameboard(navController: NavHostController) {
                     onCellClick = { row, col ->
                         if (!gameStarted.value) {
                             if (selectedShip.value != null) {
-                                val success = shipManager.moveSelectedShip(row, col, currentOrientation.value)
+                                val success = shipManager.moveSelectedShip(
+                                    row, col, currentOrientation.value
+                                )
                                 if (success) {
                                     selectedShip.value = null
                                 } else {
-                                    println("Cannot place ship at this position")
+                                    Log.d("ShipPlacement", "Cannot place ship at this position")
                                 }
                             } else {
-                                val clickedShip = playerShips.find { ship -> ship.positions.contains(Pair(row, col)) }
+                                val clickedShip = playerShips.find { ship ->
+                                    ship.positions.contains(Pair(row, col))
+                                }
                                 if (clickedShip != null) {
                                     shipManager.selectShip(clickedShip)
                                     selectedShip.value = clickedShip

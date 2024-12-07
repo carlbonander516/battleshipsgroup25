@@ -1,25 +1,41 @@
-// NavGraph.kt
+package com.example.battleshipsgroup25
 
+import GameModes
+import Gameboard
+import IntroScreen
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.example.battleshipsgroup25.Lobby // import Lobby.kt
-import com.example.battleshipsgroup25.GameLobby // import GameLobby.kt
 
 @Composable
-fun NavGraph(navController: NavHostController) {
+fun NavGraph(navController: NavHostController, model: GameModel) {
     NavHost(navController = navController, startDestination = "intro") {
         composable("intro") { IntroScreen(navController) }
         composable("game_modes") { GameModes(navController) }
-        composable("lobby") { Lobby(navController) } // Use Lobby here
-        composable("game_board") { Gameboard(navController) }
-
-        // GameLobby route with parameters for gameId and username
-        composable("game_lobby/{gameId}/{username}") { backStackEntry ->
+        composable("enter_username") {
+            EnterUsernameScreen(
+                navController = navController,
+                onUsernameCreated = { username ->
+                    model.createPlayer(
+                        name = username,
+                        onSuccess = { playerId ->
+                            model.localPlayerId.value = playerId
+                            navController.navigate("lobby")
+                        },
+                        onError = { error ->
+                            // Handle error (e.g., show a toast)
+                        }
+                    )
+                }
+            )
+        }
+        composable("lobby") {
+            LobbyScreen(navController, model)
+        }
+        composable("game_board/{gameId}") { backStackEntry ->
             val gameId = backStackEntry.arguments?.getString("gameId") ?: ""
-            val username = backStackEntry.arguments?.getString("username") ?: ""
-            GameLobby(navController, gameId, username)
+            Gameboard(navController, gameId = gameId) // Pass gameId to Gameboard
         }
     }
 }
