@@ -12,13 +12,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.google.firebase.database.FirebaseDatabase
 
 @Composable
 fun LobbyScreen(navController: NavController, model: GameModel, username: String) {
     val players by model.playerMap.collectAsStateWithLifecycle()
     val games by model.gameMap.collectAsStateWithLifecycle()
-
+    val database = FirebaseDatabase.getInstance().reference.child("games")
     var lobbyName by remember { mutableStateOf("") }
+    var isLoading by remember { mutableStateOf(false) }
     val localPlayerId = model.localPlayerId.collectAsStateWithLifecycle().value
 
     Column(
@@ -41,22 +43,26 @@ fun LobbyScreen(navController: NavController, model: GameModel, username: String
 
         Button(
             onClick = {
-                localPlayerId?.let { playerId ->
-                    model.createGame(
-                        lobbyName, playerId,
-                        onSuccess = { gameId ->
-                            println("Navigating to GameLobby with ID: $gameId") // Debug log
-                            navController.navigate("game/$gameId") // Correct navigation
-                        },
-                        onError = { error ->
-                            println("Error creating game: $error") // Debug log
-                        }
-                    )
-                }
+                isLoading = true
+                val newGameId = database.push().key.orEmpty()
+                val newGameData = mapOf(
+                    "host" to username,
+                    "status" to "waiting"
+                )
+                database.child(newGameId).setValue(newGameData)
+                    .addOnSuccessListener {
+                        isLoading = false
+                        navController.navigate("game/$newGameId")
+                    }
+                    .addOnFailureListener { error ->
+                        isLoading = false
+                        println("Error creating game: ${error.message}")
+                    }
             },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isLoading // Disable button while loading
         ) {
-            Text("Create Lobby")
+            Text(if (isLoading) "Creating..." else "Create Server")
         }
 
 

@@ -1,13 +1,14 @@
 {
   "project_info": {
-    "project_number": "890811628948",
-    "project_id": "battleships-app-69980",
-    "storage_bucket": "battleships-app-69980.firebasestorage.app"
+    "project_number": "267192058406",
+    "firebase_url": "https://battleshipsappjugroup25-default-rtdb.firebaseio.com",
+    "project_id": "battleshipsappjugroup25",
+    "storage_bucket": "battleshipsappjugroup25.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:890811628948:android:f203f43ff0df2a5bc8e381",
+        "mobilesdk_app_id": "1:267192058406:android:1d0eaf1d4c4b344aea1ce7",
         "android_client_info": {
           "package_name": "com.example.battleshipsgroup25"
         }
@@ -15,7 +16,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyAp3i6VaSuDlLGlDozpCnAqYVL-U0r9PI0"
+          "current_key": "AIzaSyBYeynmclIKRwiJKXQ5dcwRpk0G-mIFABg"
         }
       ],
       "services": {

@@ -1,95 +1,143 @@
 package com.example.battleshipsgroup25
 
 import androidx.lifecycle.ViewModel
-import com.google.firebase.Firebase
-import com.google.firebase.firestore.FieldValue
-import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.firestore.firestore
+import androidx.lifecycle.viewModelScope
+import com.google.firebase.database.*
 import kotlinx.coroutines.flow.MutableStateFlow
-
-data class Player(
-    val id: String = "",
-    val name: String = ""
-)
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
 data class Game(
-    val id: String = "",
     val name: String = "",
     val playerCount: Int = 0,
-    val gameState: String = "waiting", // States: "waiting", "in_progress", "game_over"
     val players: List<String> = emptyList()
 )
 
 class GameModel : ViewModel() {
-    val yo = Firebase.firestore
-    private val db = Firebase.firestore
-    val localPlayerId = MutableStateFlow<String?>(null)
-    val playerMap = MutableStateFlow<Map<String, Player>>(emptyMap())
-    val gameMap = MutableStateFlow<Map<String, Game>>(emptyMap())
+    private val database = FirebaseDatabase.getInstance().reference
 
-    private fun testFirestoreConnection() {
-        db.collection("test").document("testDoc")
-            .set(mapOf("testField" to "Hello Firestore"))
-            .addOnSuccessListener {
-                println("Test document written successfully!")
-            }
-            .addOnFailureListener { error ->
-                println("Failed to write test document: ${error.message}")
-            }
+    // StateFlow to observe player and game data
+    private val _playerMap = MutableStateFlow<Map<String, String>>(emptyMap()) // playerId to playerName
+    val playerMap: StateFlow<Map<String, String>> get() = _playerMap
+
+    private val _gameMap = MutableStateFlow<Map<String, Game>>(emptyMap()) // gameId to Game object
+    val gameMap: StateFlow<Map<String, Game>> get() = _gameMap
+
+    private val _localPlayerId = MutableStateFlow<String?>(null)
+    val localPlayerId: StateFlow<String?> get() = _localPlayerId
+
+    init {
+        // Load games and players data from Firebase
+        loadGames()
+        loadPlayers()
     }
-    fun initListeners() {
-        testFirestoreConnection()
-        // Listen for players
-        db.collection("players").addSnapshotListener { value, error ->
-            if (error == null && value != null) {
-                val updatedPlayers = value.documents.associate { doc ->
-                    doc.id to doc.toObject(Player::class.java)!!
+
+    private fun loadGames() {
+        database.child("games").addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val games = mutableMapOf<String, Game>()
+                snapshot.children.forEach { gameSnapshot ->
+                    val gameId = gameSnapshot.key ?: return@forEach
+                    val name = gameSnapshot.child("name").getValue(String::class.java) ?: "Unnamed"
+                    val playerCount = gameSnapshot.child("players").childrenCount.toInt()
+                    val players = gameSnapshot.child("players").children.mapNotNull { it.key }
+                    games[gameId] = Game(name, playerCount, players)
                 }
-                playerMap.value = updatedPlayers
+                _gameMap.value = games
             }
-        }
 
-        // Listen for games
-        db.collection("games").addSnapshotListener { value, error ->
-            if (error == null && value != null) {
-                val updatedGames = value.documents.associate { doc ->
-                    doc.id to doc.toObject(Game::class.java)!!
+            override fun onCancelled(error: DatabaseError) {
+                // Handle errors
+            }
+        })
+    }
+
+    private fun loadPlayers() {
+        database.child("players").addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val players = mutableMapOf<String, String>()
+                snapshot.children.forEach { playerSnapshot ->
+                    val playerId = playerSnapshot.key ?: return@forEach
+                    val playerName = playerSnapshot.child("name").getValue(String::class.java) ?: "Unknown"
+                    players[playerId] = playerName
                 }
-                gameMap.value = updatedGames
+                _playerMap.value = players
             }
-        }
+
+            override fun onCancelled(error: DatabaseError) {
+                // Handle errors
+            }
+        })
     }
 
-    fun createPlayer(name: String, onSuccess: (String) -> Unit, onError: (Exception) -> Unit) {
-        val newPlayer = Player(name = name)
-        db.collection("players").add(newPlayer)
-            .addOnSuccessListener { documentRef ->
-                onSuccess(documentRef.id)
-            }
-            .addOnFailureListener { error ->
-                onError(error)
-            }
-    }
-
-    fun createGame(lobbyName: String, playerId: String, onSuccess: (String) -> Unit, onError: (Exception) -> Unit) {
-        val newGame = Game(
-            name = lobbyName,
-            playerCount = 1,
-            players = listOf(playerId)
+    fun createGame(gameName: String, hostPlayerId: String, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
+        val newGameRef = database.child("games").push()
+        val newGameId = newGameRef.key ?: return onError("Failed to generate game ID")
+        val newGame = mapOf(
+            "name" to gameName,
+            "host" to hostPlayerId,
+            "players/$hostPlayerId" to true
         )
-        db.collection("games").add(newGame)
-            .addOnSuccessListener { documentRef ->
-                onSuccess(documentRef.id)
+        newGameRef.setValue(newGame).addOnSuccessListener {
+            onSuccess(newGameId)
+        }.addOnFailureListener {
+            onError(it.message ?: "Failed to create game")
+        }
+    }
+
+    fun joinGame(gameId: String, playerId: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        database.child("games").child(gameId).child("players").child(playerId).setValue(true)
+            .addOnSuccessListener {
+                onSuccess()
             }
-            .addOnFailureListener { error ->
-                onError(error)
+            .addOnFailureListener {
+                onError(it.message ?: "Failed to join game")
             }
     }
 
-    fun joinGame(gameId: String, playerId: String, onSuccess: () -> Unit, onError: (Exception) -> Unit) {
-        db.collection("games").document(gameId)
-            .update("players", FieldValue.arrayUnion(playerId), "playerCount", 2)
-            .addOnSuccessListener { onSuccess() }
-            .addOnFailureListener { error -> onError(error) }
+    fun setLocalPlayer(playerId: String) {
+        _localPlayerId.value = playerId
+        database.child("players").child(playerId).child("name").setValue("Player $playerId") // Example name
     }
+
+    fun initListeners() {
+        // Listener for games
+        database.child("games").addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val games = mutableMapOf<String, Game>()
+                snapshot.children.forEach { gameSnapshot ->
+                    val gameId = gameSnapshot.key ?: return@forEach
+                    val name = gameSnapshot.child("name").getValue(String::class.java) ?: "Unnamed"
+                    val playerCount = gameSnapshot.child("players").childrenCount.toInt()
+                    val players = gameSnapshot.child("players").children.mapNotNull { it.key }
+                    games[gameId] = Game(name, playerCount, players)
+                }
+                _gameMap.value = games
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                // Handle Firebase error
+                println("Error loading games: ${error.message}")
+            }
+        })
+
+        // Listener for players
+        database.child("players").addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val players = mutableMapOf<String, String>()
+                snapshot.children.forEach { playerSnapshot ->
+                    val playerId = playerSnapshot.key ?: return@forEach
+                    val playerName = playerSnapshot.child("name").getValue(String::class.java) ?: "Unknown"
+                    players[playerId] = playerName
+                }
+                _playerMap.value = players
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                // Handle Firebase error
+                println("Error loading players: ${error.message}")
+            }
+        })
+    }
+
 }
