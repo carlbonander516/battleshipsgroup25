@@ -19,6 +19,11 @@ fun GameLobby(
     gameId: String,
     model: GameModel
 ) {
+    if (gameId == "Unknown") {
+        Text("Error: Game ID is missing.")
+        return
+    }
+
     val game = model.gameMap.value[gameId]
     val playerName = model.localPlayerId.value?.let { id ->
         model.playerMap.value[id]?.name
@@ -46,3 +51,6 @@ fun GameLobby(
         }
     }
 }
+
+
+

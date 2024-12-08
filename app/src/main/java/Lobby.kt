@@ -14,7 +14,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 
 @Composable
-fun LobbyScreen(navController: NavController, model: GameModel) {
+fun LobbyScreen(navController: NavController, model: GameModel, username: String) {
     val players by model.playerMap.collectAsStateWithLifecycle()
     val games by model.gameMap.collectAsStateWithLifecycle()
 
@@ -26,6 +26,10 @@ fun LobbyScreen(navController: NavController, model: GameModel) {
             .fillMaxSize()
             .padding(16.dp)
     ) {
+        Text(text = "Welcome, $username!")
+
+        Spacer(modifier = Modifier.height(16.dp))
+
         TextField(
             value = lobbyName,
             onValueChange = { lobbyName = it },
@@ -41,10 +45,11 @@ fun LobbyScreen(navController: NavController, model: GameModel) {
                     model.createGame(
                         lobbyName, playerId,
                         onSuccess = { gameId ->
-                            navController.navigate("game/$gameId")
+                            println("Navigating to GameLobby with ID: $gameId") // Debug log
+                            navController.navigate("game/$gameId") // Correct navigation
                         },
                         onError = { error ->
-                            // Handle error
+                            println("Error creating game: $error") // Debug log
                         }
                     )
                 }
@@ -53,6 +58,8 @@ fun LobbyScreen(navController: NavController, model: GameModel) {
         ) {
             Text("Create Lobby")
         }
+
+
 
         Spacer(modifier = Modifier.height(16.dp))
 
@@ -83,3 +90,4 @@ fun LobbyScreen(navController: NavController, model: GameModel) {
         }
     }
 }
+

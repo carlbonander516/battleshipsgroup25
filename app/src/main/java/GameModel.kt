@@ -1,8 +1,10 @@
 package com.example.battleshipsgroup25
 
 import androidx.lifecycle.ViewModel
+import com.google.firebase.Firebase
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.firestore
 import kotlinx.coroutines.flow.MutableStateFlow
 
 data class Player(
@@ -19,12 +21,24 @@ data class Game(
 )
 
 class GameModel : ViewModel() {
-    val db = FirebaseFirestore.getInstance()
+    val yo = Firebase.firestore
+    private val db = Firebase.firestore
     val localPlayerId = MutableStateFlow<String?>(null)
     val playerMap = MutableStateFlow<Map<String, Player>>(emptyMap())
     val gameMap = MutableStateFlow<Map<String, Game>>(emptyMap())
 
+    private fun testFirestoreConnection() {
+        db.collection("test").document("testDoc")
+            .set(mapOf("testField" to "Hello Firestore"))
+            .addOnSuccessListener {
+                println("Test document written successfully!")
+            }
+            .addOnFailureListener { error ->
+                println("Failed to write test document: ${error.message}")
+            }
+    }
     fun initListeners() {
+        testFirestoreConnection()
         // Listen for players
         db.collection("players").addSnapshotListener { value, error ->
             if (error == null && value != null) {

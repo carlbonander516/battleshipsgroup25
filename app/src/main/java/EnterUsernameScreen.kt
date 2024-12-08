@@ -40,12 +40,14 @@ fun EnterUsernameScreen(
         Button(
             onClick = {
                 if (username.isNotBlank()) {
-                    onUsernameCreated(username)
+                    navController.navigate("lobby/$username")
                 }
             },
             modifier = Modifier.fillMaxWidth()
         ) {
             Text("Enter Lobby")
         }
+
+
     }
 }

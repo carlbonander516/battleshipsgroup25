@@ -5,37 +5,57 @@ import Gameboard
 import IntroScreen
 import androidx.compose.runtime.Composable
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.navArgument
 
 @Composable
 fun NavGraph(navController: NavHostController, model: GameModel) {
     NavHost(navController = navController, startDestination = "intro") {
-        composable("intro") { IntroScreen(navController) }
-        composable("game_modes") { GameModes(navController) }
+        composable("intro") {
+            IntroScreen(navController = navController)
+        }
+
+        composable("game_modes") {
+            GameModes(navController = navController)
+        }
+
         composable("enter_username") {
             EnterUsernameScreen(
                 navController = navController,
                 onUsernameCreated = { username ->
-                    model.createPlayer(
-                        name = username,
-                        onSuccess = { playerId ->
-                            model.localPlayerId.value = playerId
-                            navController.navigate("lobby")
-                        },
-                        onError = { error ->
-                            // Handle error (e.g., show a toast)
-                        }
-                    )
+                    navController.navigate("lobby/$username") // Navigate to lobby with username
                 }
             )
         }
-        composable("lobby") {
-            LobbyScreen(navController, model)
+
+        composable(
+            "lobby/{username}",
+            arguments = listOf(navArgument("username") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val username = backStackEntry.arguments?.getString("username") ?: "Unknown"
+            LobbyScreen(
+                navController = navController,
+                model = model,
+                username = username
+            )
         }
-        composable("game_board/{gameId}") { backStackEntry ->
-            val gameId = backStackEntry.arguments?.getString("gameId") ?: ""
-            Gameboard(navController, gameId = gameId) // Pass gameId to Gameboard
+        composable(
+            "game/{gameId}",
+            arguments = listOf(navArgument("gameId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val gameId = backStackEntry.arguments?.getString("gameId") ?: "Unknown"
+            println("Navigating to GameLobby with Game ID: $gameId") // Debug log
+
+            GameLobby(
+                navController = navController,
+                gameId = gameId,
+                model = model
+            )
         }
+
+
     }
 }
+
