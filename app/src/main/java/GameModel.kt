@@ -16,18 +16,16 @@ data class Game(
 class GameModel : ViewModel() {
     private val database = FirebaseDatabase.getInstance().reference
 
-    // StateFlow to observe player and game data
-    private val _playerMap = MutableStateFlow<Map<String, String>>(emptyMap()) // playerId to playerName
+    private val _playerMap = MutableStateFlow<Map<String, String>>(emptyMap())
     val playerMap: StateFlow<Map<String, String>> get() = _playerMap
 
-    private val _gameMap = MutableStateFlow<Map<String, Game>>(emptyMap()) // gameId to Game object
+    private val _gameMap = MutableStateFlow<Map<String, Game>>(emptyMap())
     val gameMap: StateFlow<Map<String, Game>> get() = _gameMap
 
     private val _localPlayerId = MutableStateFlow<String?>(null)
     val localPlayerId: StateFlow<String?> get() = _localPlayerId
 
     init {
-        // Load games and players data from Firebase
         loadGames()
         loadPlayers()
     }
@@ -47,7 +45,7 @@ class GameModel : ViewModel() {
             }
 
             override fun onCancelled(error: DatabaseError) {
-                // Handle errors
+                println("Error loading games: ${error.message}")
             }
         })
     }
@@ -65,7 +63,7 @@ class GameModel : ViewModel() {
             }
 
             override fun onCancelled(error: DatabaseError) {
-                // Handle errors
+                println("Error loading players: ${error.message}")
             }
         })
     }
@@ -79,6 +77,7 @@ class GameModel : ViewModel() {
             "players/$hostPlayerId" to true
         )
         newGameRef.setValue(newGame).addOnSuccessListener {
+            setLocalPlayer(hostPlayerId)
             onSuccess(newGameId)
         }.addOnFailureListener {
             onError(it.message ?: "Failed to create game")
@@ -88,20 +87,31 @@ class GameModel : ViewModel() {
     fun joinGame(gameId: String, playerId: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         database.child("games").child(gameId).child("players").child(playerId).setValue(true)
             .addOnSuccessListener {
+                setLocalPlayer(playerId)
                 onSuccess()
             }
             .addOnFailureListener {
+                println("Error joining game: ${it.message}")
                 onError(it.message ?: "Failed to join game")
             }
     }
 
     fun setLocalPlayer(playerId: String) {
         _localPlayerId.value = playerId
-        database.child("players").child(playerId).child("name").setValue("Player $playerId") // Example name
+        database.child("players").child(playerId).child("name").setValue("Player $playerId")
+    }
+
+    fun terminateGame(gameId: String) {
+        database.child("games").child(gameId).removeValue()
+            .addOnSuccessListener {
+                println("Game $gameId successfully terminated.")
+            }
+            .addOnFailureListener {
+                println("Error terminating game $gameId: ${it.message}")
+            }
     }
 
     fun initListeners() {
-        // Listener for games
         database.child("games").addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val games = mutableMapOf<String, Game>()
@@ -116,12 +126,10 @@ class GameModel : ViewModel() {
             }
 
             override fun onCancelled(error: DatabaseError) {
-                // Handle Firebase error
                 println("Error loading games: ${error.message}")
             }
         })
 
-        // Listener for players
         database.child("players").addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
                 val players = mutableMapOf<String, String>()
@@ -134,10 +142,8 @@ class GameModel : ViewModel() {
             }
 
             override fun onCancelled(error: DatabaseError) {
-                // Handle Firebase error
                 println("Error loading players: ${error.message}")
             }
         })
     }
-
 }

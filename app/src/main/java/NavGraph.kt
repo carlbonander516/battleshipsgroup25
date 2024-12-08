@@ -3,19 +3,12 @@ package com.example.battleshipsgroup25
 import GameModes
 import Gameboard
 import IntroScreen
-import com.example.battleshipsgroup25.GameLobby
-import androidx.compose.foundation.layout.Column
-import androidx.compose.material3.Button
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
 import androidx.navigation.NavHostController
-import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
-import java.lang.reflect.Modifier
+import androidx.navigation.NavType
 
 @Composable
 fun NavGraph(navController: NavHostController, model: GameModel) {
@@ -60,6 +53,12 @@ fun NavGraph(navController: NavHostController, model: GameModel) {
             )
         }
 
+        composable(
+            "game_board/{gameId}",
+            arguments = listOf(navArgument("gameId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val gameId = backStackEntry.arguments?.getString("gameId") ?: "Unknown"
+            Gameboard(navController = navController, gameId = gameId)
+        }
     }
 }
-
