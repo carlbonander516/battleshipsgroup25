@@ -1,4 +1,3 @@
-
 package com.example.battleshipsgroup25
 
 import androidx.compose.foundation.layout.*
@@ -46,18 +45,29 @@ fun LobbyScreen(navController: NavController, model: GameModel, username: String
             onClick = {
                 isLoading = true
                 val newGameId = database.push().key.orEmpty()
+
+                if (lobbyName.isBlank()) {
+                    println("Lobby name cannot be empty!")
+                    isLoading = false
+                    return@Button
+                }
+
                 val newGameData = mapOf(
+                    "name" to lobbyName,
                     "host" to username,
-                    "status" to "waiting"
+                    "status" to "waiting",
+                    "players" to mapOf(username to true) // Add the creator to the players list
                 )
+
                 database.child(newGameId).setValue(newGameData)
                     .addOnSuccessListener {
+                        println("Game created successfully with ID: $newGameId")
                         isLoading = false
                         navController.navigate("game/$newGameId")
                     }
                     .addOnFailureListener { error ->
-                        isLoading = false
                         println("Error creating game: ${error.message}")
+                        isLoading = false
                     }
             },
             modifier = Modifier.fillMaxWidth(),
@@ -76,7 +86,7 @@ fun LobbyScreen(navController: NavController, model: GameModel, username: String
                 items(games.entries.toList()) { (gameId, game) ->
                     ListItem(
                         headlineContent = { Text(game.name) },
-                        supportingContent = { Text("Players: ${game.playerCount}") },
+                        supportingContent = { Text("Players in lobby: ${game.playerCount}") },
                         trailingContent = {
                             Button(onClick = {
                                 localPlayerId?.let { playerId ->
