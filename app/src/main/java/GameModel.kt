@@ -96,7 +96,7 @@ class GameModel : ViewModel() {
             }
     }
 
-    fun setLocalPlayer(playerId: String) {
+    private fun setLocalPlayer(playerId: String) {
         _localPlayerId.value = playerId
         database.child("players").child(playerId).child("name").setValue("Player $playerId")
     }

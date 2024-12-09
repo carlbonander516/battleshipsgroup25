@@ -1,3 +1,4 @@
+
 package com.example.battleshipsgroup25
 
 import androidx.compose.foundation.layout.*
@@ -60,40 +61,42 @@ fun LobbyScreen(navController: NavController, model: GameModel, username: String
                     }
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading // Disable button while loading
+            enabled = !isLoading
         ) {
-            Text(if (isLoading) "Creating..." else "Create Server")
+            Text(if (isLoading) "Creating..." else "Create Lobby")
         }
-
-
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        LazyColumn {
-            items(games.entries.toList()) { (gameId, game) ->
-                ListItem(
-                    headlineContent = { Text(game.name) },
-                    supportingContent = { Text("Players: ${game.playerCount}") },
-                    trailingContent = {
-                        Button(onClick = {
-                            localPlayerId?.let { playerId ->
-                                model.joinGame(
-                                    gameId, playerId,
-                                    onSuccess = {
-                                        navController.navigate("game/$gameId")
-                                    },
-                                    onError = { error ->
-                                        // Handle error
-                                    }
-                                )
+        if (games.isEmpty()) {
+            Text("No games available. Create a lobby to get started!")
+        } else {
+            Text("Available Games")
+            LazyColumn {
+                items(games.entries.toList()) { (gameId, game) ->
+                    ListItem(
+                        headlineContent = { Text(game.name) },
+                        supportingContent = { Text("Players: ${game.playerCount}") },
+                        trailingContent = {
+                            Button(onClick = {
+                                localPlayerId?.let { playerId ->
+                                    model.joinGame(
+                                        gameId, playerId,
+                                        onSuccess = {
+                                            navController.navigate("game/$gameId")
+                                        },
+                                        onError = { error ->
+                                            println("Error joining game: $error")
+                                        }
+                                    )
+                                }
+                            }) {
+                                Text("Join")
                             }
-                        }) {
-                            Text("Join")
                         }
-                    }
-                )
+                    )
+                }
             }
         }
     }
 }
-
