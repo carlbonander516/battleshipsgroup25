@@ -20,17 +20,28 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 val gameModel = remember { GameModel() }
                 val database = FirebaseDatabase.getInstance().reference
-                database.child("test").setValue("Firebase connected!")
-                    .addOnSuccessListener {
-                        Log.d("FirebaseTest", "Connection successful!")
-                    }
-                    .addOnFailureListener {
-                        Log.e("FirebaseTest", "Connection failed: ${it.message}")
-                    }
+                try {
+                    database.child("test").setValue("Firebase connected!")
+                        .addOnSuccessListener {
+                            Log.d("FirebaseTest", "Connection successful!")
+                        }
+                        .addOnFailureListener {
+                            Log.e("FirebaseTest", "Connection failed: ${it.message}")
+                        }
+                } catch (e: Exception) {
+                    Log.e("FirebaseTest", "Unexpected error: ${e.message}")
+                }
 
-                gameModel.initListeners()
+                try {
+                    gameModel.initListeners()
+                } catch (e: Exception) {
+                    Log.e("GameModelInit", "Error initializing listeners: ${e.message}")
+                }
 
+                Log.d("NavGraph", "Initializing navigation graph")
                 NavGraph(navController = navController, model = gameModel)
+                Log.d("NavGraph", "Navigation graph initialized successfully")
+
             }
         }
     }

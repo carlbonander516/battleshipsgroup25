@@ -20,6 +20,10 @@ fun NavGraph(navController: NavHostController, model: GameModel) {
         composable("game_modes") {
             GameModes(navController = navController)
         }
+        // Offline game board
+        composable("game_board") {
+            Gameboard(navController = navController)
+        }
 
         composable("enter_username") {
             EnterUsernameScreen(

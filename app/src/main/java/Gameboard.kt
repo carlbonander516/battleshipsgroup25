@@ -24,6 +24,7 @@ import com.example.battleshipsgroup25.ShipManager
 @Composable
 fun Gameboard(navController: NavHostController, gameId: String? = null) {
     // Use gameId if needed
+    Log.d("Gameboard", "Initializing game board. gameId = $gameId")
     if (gameId != null) {
         Log.d("Gameboard", "Gameboard loaded for game: $gameId")
         // Fetch game-related data or perform game-specific logic here
@@ -31,10 +32,15 @@ fun Gameboard(navController: NavHostController, gameId: String? = null) {
         Log.d("Gameboard", "Gameboard loaded without a specific game")
     }
 
+
     val boardSize = 10
+    Log.d("Gameboard", "Board size: $boardSize")
     val shipManager = remember { ShipManager(boardSize) }
+    Log.d("Gameboard", "ShipManager initialized")
     val playerShips = remember { mutableStateListOf(*shipManager.placeShips().toTypedArray()) }
+    Log.d("Gameboard", "Player ships initialized: $playerShips")
     val botShips = remember { mutableStateListOf(*shipManager.placeShips().toTypedArray()) }
+    Log.d("Gameboard", "Bot ships initialized: $botShips")
 
     Log.d("ShipPlacement", "Player Ships: ${playerShips.map { it.name to it.positions }}")
     Log.d("ShipPlacement", "Bot Ships: ${botShips.map { it.name to it.positions }}")
@@ -50,6 +56,7 @@ fun Gameboard(navController: NavHostController, gameId: String? = null) {
     val turn = remember { mutableStateOf("Player") }
     val playerGridHits = remember { mutableStateListOf<Pair<Int, Int>>() }
     val playerGridMisses = remember { mutableStateListOf<Pair<Int, Int>>() }
+        Log.d("Gameboard", "Game states initialized")
 
     fun botAttack(): Triple<Int, Int, Boolean>? {
         val availableCells = (0 until boardSize).flatMap { row ->
