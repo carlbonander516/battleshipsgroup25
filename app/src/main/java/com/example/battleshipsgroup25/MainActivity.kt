@@ -20,6 +20,8 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 val gameModel = remember { GameModel() }
                 val database = FirebaseDatabase.getInstance().reference
+
+                // Test Firebase connection
                 try {
                     database.child("test").setValue("Firebase connected!")
                         .addOnSuccessListener {
@@ -32,17 +34,21 @@ class MainActivity : ComponentActivity() {
                     Log.e("FirebaseTest", "Unexpected error: ${e.message}")
                 }
 
+                // Initialize listeners
                 try {
                     gameModel.initListeners()
                 } catch (e: Exception) {
                     Log.e("GameModelInit", "Error initializing listeners: ${e.message}")
                 }
 
-                Log.d("NavGraph", "Initializing navigation graph")
-                NavGraph(navController = navController, model = gameModel)
-                Log.d("NavGraph", "Navigation graph initialized successfully")
-
+                // Initialize NavGraph
+                NavGraph(
+                    navController = navController,
+                    model = gameModel,
+                    username = "" // Username will be dynamically set in the navigation
+                )
             }
         }
     }
 }
+

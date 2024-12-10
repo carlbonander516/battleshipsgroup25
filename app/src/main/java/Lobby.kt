@@ -63,7 +63,7 @@ fun LobbyScreen(navController: NavController, model: GameModel, username: String
                     .addOnSuccessListener {
                         println("Game created successfully with ID: $newGameId")
                         isLoading = false
-                        navController.navigate("game/$newGameId")
+                        navController.navigate("game_lobby/$newGameId")
                     }
                     .addOnFailureListener { error ->
                         println("Error creating game: ${error.message}")
@@ -88,16 +88,17 @@ fun LobbyScreen(navController: NavController, model: GameModel, username: String
                         headlineContent = { Text(game.name) },
                         supportingContent = { Text("Players: ${game.playerCount}/$maxPlayers") },
                         trailingContent = {
+                            // Join button
                             Button(
                                 onClick = {
                                     isLoading = true
                                     model.joinLobby(gameId, username) { success ->
                                         isLoading = false
                                         if (success) {
-                                            navController.navigate("game/$gameId")
+                                            // Navigate to GameLobbyScreen
+                                            navController.navigate("game_lobby/$gameId")
                                         } else {
                                             println("Failed to join lobby. Lobby might be full or an error occurred.")
-                                            // Optionally, show a Snackbar or other UI feedback here
                                         }
                                     }
                                 }
@@ -108,7 +109,6 @@ fun LobbyScreen(navController: NavController, model: GameModel, username: String
                     )
                 }
             }
-
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.example.battleshipsgroup25
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.database.*
@@ -10,8 +11,12 @@ import kotlinx.coroutines.launch
 data class Game(
     val name: String = "",
     val playerCount: Int = 0,
-    val players: MutableMap<String, Boolean> = mutableMapOf() // Key: PlayerName, Value: true
+    val players: Map<String, Boolean> = emptyMap(),
+    val readyStatus: Map<String, Boolean> = emptyMap(),
+    val host: String = "",
+    val status: String = "waiting"
 )
+
 
 
 class GameModel : ViewModel() {
@@ -31,28 +36,6 @@ class GameModel : ViewModel() {
         loadGames()
         loadPlayers()
     }
-
-    private fun loadGames() {
-        database.child("games").addValueEventListener(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val games = mutableMapOf<String, Game>()
-                snapshot.children.forEach { gameSnapshot ->
-                    val gameId = gameSnapshot.key ?: return@forEach
-                    val name = gameSnapshot.child("name").getValue(String::class.java) ?: "Unnamed"
-                    val playersMap = gameSnapshot.child("players").getValue<Map<String, Boolean>>() ?: emptyMap()
-                    val playerCount = playersMap.size
-                    games[gameId] = Game(name = name, playerCount = playerCount, players = playersMap.toMutableMap())
-                }
-                _gameMap.value = games
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                println("Error loading games: ${error.message}")
-            }
-        })
-    }
-
-
     private fun loadPlayers() {
         database.child("players").addValueEventListener(object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -67,6 +50,32 @@ class GameModel : ViewModel() {
 
             override fun onCancelled(error: DatabaseError) {
                 println("Error loading players: ${error.message}")
+            }
+        })
+    }
+
+    private fun loadGames() {
+        database.child("games").addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                val games = mutableMapOf<String, Game>()
+                snapshot.children.forEach { gameSnapshot ->
+                    val gameId = gameSnapshot.key ?: return@forEach
+                    val name = gameSnapshot.child("name").getValue(String::class.java) ?: "Unnamed"
+                    val playersMap = gameSnapshot.child("players").getValue<Map<String, Boolean>>() ?: emptyMap()
+                    val readyStatus = gameSnapshot.child("readyStatus").getValue<Map<String, Boolean>>() ?: emptyMap()
+                    val playerCount = playersMap.size
+                    games[gameId] = Game(
+                        name = name,
+                        playerCount = playerCount,
+                        players = playersMap.toMutableMap(),
+                        readyStatus = readyStatus.toMutableMap()
+                    )
+                }
+                _gameMap.value = games
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                println("Error loading games: ${error.message}")
             }
         })
     }
@@ -130,6 +139,7 @@ class GameModel : ViewModel() {
     }
 
 
+
     private fun setLocalPlayer(playerId: String) {
         _localPlayerId.value = playerId
         database.child("players").child(playerId).child("name").setValue("Player $playerId")
@@ -154,29 +164,37 @@ class GameModel : ViewModel() {
                     val name = gameSnapshot.child("name").getValue(String::class.java) ?: "Unnamed"
                     val playersMap = gameSnapshot.child("players").getValue<Map<String, Boolean>>() ?: emptyMap()
                     val playerCount = playersMap.size
-                    games[gameId] = Game(name, playerCount, playersMap.toMutableMap())
+                    val status = gameSnapshot.child("status").getValue(String::class.java) ?: "waiting"
+
+                    // Safely deserialize readyStatus
+                    val readyStatus = try {
+                        val rawReadyStatus = gameSnapshot.child("readyStatus").value
+                        if (rawReadyStatus is Map<*, *>) {
+                            @Suppress("UNCHECKED_CAST")
+                            rawReadyStatus as Map<String, Boolean>
+                        } else {
+                            Log.e("GameModel", "Invalid readyStatus format: $rawReadyStatus")
+                            emptyMap()
+                        }
+                    } catch (e: Exception) {
+                        Log.e("GameModel", "Error deserializing readyStatus: ${e.message}")
+                        emptyMap()
+                    }
+
+                    // Create a Game object and add it to the map
+                    games[gameId] = Game(
+                        name = name,
+                        playerCount = playerCount,
+                        players = playersMap.toMutableMap(),
+                        readyStatus = readyStatus,
+                        status = status
+                    )
                 }
                 _gameMap.value = games
             }
 
             override fun onCancelled(error: DatabaseError) {
-                println("Error loading games: ${error.message}")
-            }
-        })
-
-        database.child("players").addValueEventListener(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val players = mutableMapOf<String, String>()
-                snapshot.children.forEach { playerSnapshot ->
-                    val playerId = playerSnapshot.key ?: return@forEach
-                    val playerName = playerSnapshot.child("name").getValue(String::class.java) ?: "Unknown"
-                    players[playerId] = playerName
-                }
-                _playerMap.value = players
-            }
-
-            override fun onCancelled(error: DatabaseError) {
-                println("Error loading players: ${error.message}")
+                Log.e("GameModel", "Error loading games: ${error.message}")
             }
         })
     }
