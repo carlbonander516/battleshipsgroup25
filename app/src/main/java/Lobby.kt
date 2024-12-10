@@ -15,7 +15,7 @@ import androidx.navigation.NavController
 import com.google.firebase.database.FirebaseDatabase
 
 @Composable
-fun LobbyScreen(navController: NavController, model: GameModel, username: String) {
+fun LobbyScreen(navController: NavController, model: GameModel, username: String, maxPlayers: Int) {
     val players by model.playerMap.collectAsStateWithLifecycle()
     val games by model.gameMap.collectAsStateWithLifecycle()
     val database = FirebaseDatabase.getInstance().reference.child("games")
@@ -86,27 +86,29 @@ fun LobbyScreen(navController: NavController, model: GameModel, username: String
                 items(games.entries.toList()) { (gameId, game) ->
                     ListItem(
                         headlineContent = { Text(game.name) },
-                        supportingContent = { Text("Players in lobby: ${game.playerCount}") },
+                        supportingContent = { Text("Players: ${game.playerCount}/$maxPlayers") },
                         trailingContent = {
-                            Button(onClick = {
-                                localPlayerId?.let { playerId ->
-                                    model.joinGame(
-                                        gameId, playerId,
-                                        onSuccess = {
+                            Button(
+                                onClick = {
+                                    isLoading = true
+                                    model.joinLobby(gameId, username) { success ->
+                                        isLoading = false
+                                        if (success) {
                                             navController.navigate("game/$gameId")
-                                        },
-                                        onError = { error ->
-                                            println("Error joining game: $error")
+                                        } else {
+                                            println("Failed to join lobby. Lobby might be full or an error occurred.")
+                                            // Optionally, show a Snackbar or other UI feedback here
                                         }
-                                    )
+                                    }
                                 }
-                            }) {
-                                Text("Join")
+                            ) {
+                                Text(if (isLoading) "Joining..." else "Join")
                             }
                         }
                     )
                 }
             }
+
         }
     }
 }

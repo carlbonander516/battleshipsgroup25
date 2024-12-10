@@ -38,7 +38,8 @@ fun NavGraph(navController: NavHostController, model: GameModel) {
             LobbyScreen(
                 navController = navController,
                 model = model,
-                username = username
+                username = username,
+                maxPlayers = MAX_PLAYERS
             )
         }
         composable(
