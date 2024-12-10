@@ -81,33 +81,32 @@ class GameModel : ViewModel() {
     }
 
 
-    fun createGame(gameName: String, hostPlayerId: String, onSuccess: (String) -> Unit, onError: (String) -> Unit) {
-        val newGameRef = database.child("games").push()
-        val newGameId = newGameRef.key ?: return onError("Failed to generate game ID")
-        val newGame = mapOf(
-            "name" to gameName,
-            "host" to hostPlayerId,
-            "players/$hostPlayerId" to true
-        )
-        newGameRef.setValue(newGame).addOnSuccessListener {
-            setLocalPlayer(hostPlayerId)
-            onSuccess(newGameId)
-        }.addOnFailureListener {
-            onError(it.message ?: "Failed to create game")
+    fun joinGame(gameId: String, username: String, onError: (String) -> Unit, onSuccess: () -> Unit) {
+        viewModelScope.launch {
+            val gameRef = database.child("games").child(gameId)
+            gameRef.child("players").get().addOnSuccessListener { snapshot ->
+                val players = snapshot.childrenCount
+                if (players >= 2) {
+                    onError("Lobby is full. Cannot join game.")
+                    Log.e("GameModel", "Game $gameId is full.")
+                } else {
+                    gameRef.child("players").child(username).setValue(true)
+                        .addOnSuccessListener {
+                            Log.d("GameModel", "Player $username joined game $gameId successfully.")
+                            onSuccess()
+                        }
+                        .addOnFailureListener { exception ->
+                            onError("Failed to join the lobby. Please try again.")
+                            Log.e("GameModel", "Error adding player to game: ${exception.message}")
+                        }
+                }
+            }.addOnFailureListener { exception ->
+                onError("Failed to check lobby status. Please try again.")
+                Log.e("GameModel", "Error fetching players: ${exception.message}")
+            }
         }
     }
 
-    fun joinGame(gameId: String, playerId: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
-        database.child("games").child(gameId).child("players").child(playerId).setValue(true)
-            .addOnSuccessListener {
-                setLocalPlayer(playerId)
-                onSuccess()
-            }
-            .addOnFailureListener {
-                println("Error joining game: ${it.message}")
-                onError(it.message ?: "Failed to join game")
-            }
-    }
     fun joinLobby(gameId: String, playerName: String, onComplete: (Boolean) -> Unit) {
         database.child("games").child(gameId).runTransaction(object : Transaction.Handler {
             override fun doTransaction(currentData: MutableData): Transaction.Result {

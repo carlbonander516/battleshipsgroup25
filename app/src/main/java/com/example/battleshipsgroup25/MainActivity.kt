@@ -9,8 +9,10 @@ import androidx.navigation.compose.rememberNavController
 import com.example.battleshipsgroup25.ui.theme.Battleshipsgroup25Theme
 import com.google.firebase.FirebaseApp
 import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.auth.FirebaseAuth
 
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         FirebaseApp.initializeApp(this)
 
@@ -20,6 +22,16 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 val gameModel = remember { GameModel() }
                 val database = FirebaseDatabase.getInstance().reference
+
+                // In your MainActivity or application initialization code
+                FirebaseAuth.getInstance().signInAnonymously()
+                    .addOnCompleteListener { task ->
+                        if (task.isSuccessful) {
+                            Log.d("Auth", "Sign-in successful: ${task.result?.user?.uid}")
+                        } else {
+                            Log.e("Auth", "Sign-in failed: ${task.exception?.message}")
+                        }
+                    }
 
                 // Test Firebase connection
                 try {

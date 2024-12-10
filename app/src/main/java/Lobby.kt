@@ -1,5 +1,6 @@
 package com.example.battleshipsgroup25
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -9,6 +10,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
@@ -22,6 +24,7 @@ fun LobbyScreen(navController: NavController, model: GameModel, username: String
     var lobbyName by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     val localPlayerId = model.localPlayerId.collectAsStateWithLifecycle().value
+    val context = LocalContext.current
 
     Column(
         modifier = Modifier
@@ -83,27 +86,30 @@ fun LobbyScreen(navController: NavController, model: GameModel, username: String
         } else {
             Text("Available Games")
             LazyColumn {
-                items(games.entries.toList()) { (gameId, game) ->
+                items(games.toList()) { (gameId, game) ->
                     ListItem(
                         headlineContent = { Text(game.name) },
-                        supportingContent = { Text("Players: ${game.playerCount}/$maxPlayers") },
+                        supportingContent = {
+                            Text("Players: ${game.players.size} / $maxPlayers")
+                        },
                         trailingContent = {
-                            // Join button
                             Button(
                                 onClick = {
-                                    isLoading = true
-                                    model.joinLobby(gameId, username) { success ->
-                                        isLoading = false
-                                        if (success) {
-                                            // Navigate to GameLobbyScreen
+                                    // Call joinGame from GameModel
+                                    model.joinGame(
+                                        gameId = gameId,
+                                        username = username,
+                                        onError = { errorMessage ->
+                                            Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
+                                        },
+                                        onSuccess = {
                                             navController.navigate("game_lobby/$gameId")
-                                        } else {
-                                            println("Failed to join lobby. Lobby might be full or an error occurred.")
                                         }
-                                    }
-                                }
+                                    )
+                                },
+                                enabled = game.players.size < maxPlayers // Disable if full
                             ) {
-                                Text(if (isLoading) "Joining..." else "Join")
+                                Text("Join")
                             }
                         }
                     )
