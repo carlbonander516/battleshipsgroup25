@@ -1,17 +1,10 @@
-
 package com.example.battleshipsgroup25
 
 import Grid
 import android.util.Log
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,23 +17,41 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.google.firebase.database.*
 
+// Function to parse ships from Firebase data
+fun parseShipsFromData(shipsData: Map<String, List<String>>?): List<Ship> {
+    Log.d("parseShipsFromData", "Input Ships Data: $shipsData")
+    return shipsData?.map { (name, positions) ->
+        val parsedPositions = positions.map { position ->
+            val coords = position.split(",")
+            Pair(coords[0].toInt(), coords[1].toInt())
+        }
+        Log.d("parseShipsFromData", "Parsed Ship: $name with positions $parsedPositions")
+        Ship(name = name, length = parsedPositions.size, positions = parsedPositions)
+    } ?: emptyList()
+}
+
+
 @Composable
-fun GameboardOnline(navController: NavHostController, gameId: String, playerId: String, model: GameModel = viewModel()) {
-    Log.d("GameboardOnline", "Initialized with gameId: $gameId and playerId: $playerId")
+fun GameboardOnline(
+    navController: NavHostController,
+    gameId: String,
+    playerId: String,
+    model: GameModel = viewModel()
+) {
     val database = FirebaseDatabase.getInstance().reference
     val gameRef = database.child("games").child(gameId)
 
-    val turn = remember { mutableStateOf("Player1") }
+    val turn = remember { mutableStateOf("player1") }
     val gameOver = remember { mutableStateOf(false) }
     val winner = remember { mutableStateOf("") }
     val playerGridHits = remember { mutableStateListOf<Pair<Int, Int>>() }
     val playerGridMisses = remember { mutableStateListOf<Pair<Int, Int>>() }
     val opponentGridHits = remember { mutableStateListOf<Pair<Int, Int>>() }
     val opponentGridMisses = remember { mutableStateListOf<Pair<Int, Int>>() }
+    val opponentId = if (playerId == "player1") "player2" else "player1"
 
     val gameData = remember { mutableStateOf<Map<String, Any?>>(emptyMap()) }
 
-// Listen for game state changes
     DisposableEffect(gameId) {
         val listener = object : ValueEventListener {
             override fun onDataChange(snapshot: DataSnapshot) {
@@ -48,7 +59,7 @@ fun GameboardOnline(navController: NavHostController, gameId: String, playerId: 
                 if (value is Map<*, *>) {
                     @Suppress("UNCHECKED_CAST")
                     gameData.value = value as Map<String, Any?>
-                    turn.value = gameData.value["turn"] as? String ?: "Player1"
+                    turn.value = gameData.value["turn"] as? String ?: "player1"
                     gameOver.value = gameData.value["gameOver"] as? Boolean ?: false
                     winner.value = gameData.value["winner"] as? String ?: ""
                 } else {
@@ -64,32 +75,49 @@ fun GameboardOnline(navController: NavHostController, gameId: String, playerId: 
         onDispose { gameRef.removeEventListener(listener) }
     }
 
+    fun checkWinCondition() {
+        val opponentData = (gameData.value["players"] as? Map<*, *>)?.get(opponentId) as? Map<*, *>
+        val shipsData = opponentData?.get("ships") as? Map<String, List<String>>
+        val allShipCells = shipsData?.values?.flatten()?.toSet() ?: emptySet()
+        val allHits = (gameData.value["hits"] as? Map<*, *>)?.get(playerId) as? List<*>
+        val hitCells = allHits?.map { it.toString() } ?: emptyList()
 
-    fun handleOnlineHit(row: Int, col: Int): Boolean {
-        // Simulate fetching opponent ships from the game state
-        val opponentShips = (gameData.value["opponentShips"] as? List<*>)?.filterIsInstance<Ship>() ?: return false
-        val hit = opponentShips.any { ship -> Pair(row, col) in ship.positions }
-
-        // Update the online game state
-        val updates = mutableMapOf<String, Any?>()
-        if (hit) {
-            updates["opponentHits"] = opponentGridHits + Pair(row, col)
-        } else {
-            updates["opponentMisses"] = opponentGridMisses + Pair(row, col)
+        if (allShipCells.all { it in hitCells }) {
+            gameRef.child("gameOver").setValue(true)
+            gameRef.child("winner").setValue(playerId)
         }
-        gameRef.updateChildren(updates) // `gameRef` is the reference to the Firebase database node for this game.
-
-        return hit
-    }
-    fun checkWinCondition(hits: List<Pair<Int, Int>>): Boolean {
-        val opponentShips = (gameData.value["opponentShips"] as? List<*>)?.filterIsInstance<Ship>() ?: return false
-        val totalShipCells = opponentShips.flatMap { it.positions }.toSet()
-        return totalShipCells.all { it in hits }
     }
 
+    fun updateTurn() {
+        val nextTurn = if (turn.value == "player1") "player2" else "player1"
+        gameRef.child("turn").setValue(nextTurn)
+    }
+
+    Log.d("GameboardOnline", "Full Game Data: ${gameData.value}")
 
 
-    // Render UI based on gameData
+    fun handleCellClick(row: Int, col: Int) {
+        if (turn.value != playerId || gameOver.value) return
+
+        val cellKey = "$row,$col"
+        val opponentData = (gameData.value["players"] as? Map<*, *>)?.get(opponentId) as? Map<*, *>
+        val shipsData = opponentData?.get("ships") as? Map<String, List<String>>
+        val hit = shipsData?.values?.flatten()?.contains(cellKey) == true
+
+        val updatePath = if (hit) "hits/$playerId" else "misses/$playerId"
+        gameRef.child(updatePath).push().setValue(cellKey).addOnSuccessListener {
+            if (hit) {
+                opponentGridHits.add(Pair(row, col))
+                checkWinCondition()
+            } else {
+                opponentGridMisses.add(Pair(row, col))
+            }
+            updateTurn()
+        }
+    }
+
+
+
     if (gameOver.value) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -133,43 +161,49 @@ fun GameboardOnline(navController: NavHostController, gameId: String, playerId: 
                     style = MaterialTheme.typography.bodyLarge
                 )
 
+                val rawPlayerData = (gameData.value["players"] as? Map<*, *>)?.get(playerId)
+                Log.d("GameboardOnline", "Raw Player Data: $rawPlayerData")
+
+                val playerShipsData = (rawPlayerData as? Map<*, *>)?.get("ships") as? Map<String, List<String>>
+                Log.d("GameboardOnline", "Player Ships Data: $playerShipsData")
+
+                val playerShips = parseShipsFromData(playerShipsData)
+                Log.d("GameboardOnline", "Parsed Player Ships: $playerShips")
+
+
+                val rawOpponentData = (gameData.value["players"] as? Map<*, *>)?.get(opponentId)
+                Log.d("GameboardOnline", "Raw Opponent Data: $rawOpponentData")
+
+                val opponentShipsData = (rawOpponentData as? Map<*, *>)?.get("ships") as? Map<String, List<String>>
+                Log.d("GameboardOnline", "Opponent Ships Data: $opponentShipsData")
+
+                val opponentShips = parseShipsFromData(opponentShipsData)
+                Log.d("GameboardOnline", "Parsed Opponent Ships: $opponentShips")
+
+
                 Grid(
-                    size = 10, // Board size
-                    ships = (gameData.value["opponentShips"] as? List<*>)?.filterIsInstance<Ship>() ?: emptyList(),
+                    size = 10,
+                    ships = opponentShips,
                     selectedShip = remember { mutableStateOf(null) },
-                    onCellClick = { row, col ->
-                        if (!gameOver.value && turn.value == playerId) {
-                            val isHit = handleOnlineHit(row, col)
-                            if (isHit) {
-                                opponentGridHits.add(Pair(row, col))
-                                if (checkWinCondition(opponentGridHits)) {
-                                    gameRef.child("gameOver").setValue(true)
-                                    gameRef.child("winner").setValue(playerId)
-                                }
-                            } else {
-                                opponentGridMisses.add(Pair(row, col))
-                                turn.value = if (playerId == "Player1") "Player2" else "Player1"
-                                gameRef.child("turn").setValue(turn.value)
-                            }
-                        }
-                    },
+                    onCellClick = { row, col -> handleCellClick(row, col) },
                     onCellLongClick = { _, _ -> },
                     highlights = opponentGridHits,
                     misses = opponentGridMisses,
-                    gameStarted = true
+                    gameStarted = false
                 )
-
+                Log.d("GameboardOnline", "Ships Passed to Grid: $opponentShips")
 
                 Grid(
-                    size = 10, // Board size
-                    ships = (gameData.value["opponentShips"] as? List<*>)?.filterIsInstance<Ship>() ?: emptyList(),
+                    size = 10,
+                    ships = playerShips,
                     selectedShip = remember { mutableStateOf(null) },
                     onCellClick = { _, _ -> },
                     onCellLongClick = { _, _ -> },
                     highlights = playerGridHits,
                     misses = playerGridMisses,
-                    gameStarted = true
+                    gameStarted = false
                 )
+                Log.d("GameboardOnline", "Ships Passed to Grid: $playerShips")
             }
         }
     }

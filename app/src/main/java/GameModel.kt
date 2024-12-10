@@ -62,23 +62,31 @@ class GameModel : ViewModel() {
                     val gameId = gameSnapshot.key ?: return@forEach
                     val name = gameSnapshot.child("name").getValue(String::class.java) ?: "Unnamed"
                     val playersMap = gameSnapshot.child("players").getValue<Map<String, Boolean>>() ?: emptyMap()
-                    val readyStatus = gameSnapshot.child("readyStatus").getValue<Map<String, Boolean>>() ?: emptyMap()
+                    val rawReadyStatus = gameSnapshot.child("readyStatus").value
+
+                    val readyStatus = if (rawReadyStatus is Map<*, *>) {
+                        rawReadyStatus as Map<String, Boolean>
+                    } else {
+                        emptyMap()
+                    }
+
                     val playerCount = playersMap.size
                     games[gameId] = Game(
                         name = name,
                         playerCount = playerCount,
                         players = playersMap.toMutableMap(),
-                        readyStatus = readyStatus.toMutableMap()
+                        readyStatus = readyStatus
                     )
                 }
                 _gameMap.value = games
             }
 
             override fun onCancelled(error: DatabaseError) {
-                println("Error loading games: ${error.message}")
+                Log.e("GameModel", "Error loading games: ${error.message}")
             }
         })
     }
+
 
 
     fun joinGame(gameId: String, username: String, onError: (String) -> Unit, onSuccess: () -> Unit) {
@@ -197,4 +205,32 @@ class GameModel : ViewModel() {
             }
         })
     }
+    fun fetchGameData(gameId: String, onUpdate: (Map<String, Any?>) -> Unit) {
+        database.child("games").child(gameId).addValueEventListener(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                onUpdate(snapshot.value as? Map<String, Any?> ?: emptyMap())
+            }
+
+            override fun onCancelled(error: DatabaseError) {
+                Log.e("GameModel", "Error fetching game data: ${error.message}")
+            }
+        })
+    }
+
+    fun initializeGame(gameId: String, playerId: String, opponentId: String) {
+        val ships = mapOf(
+            "Carrier" to listOf("0,0", "0,1", "0,2", "0,3", "0,4"),
+            "Battleship" to listOf("2,0", "2,1", "2,2", "2,3"),
+            "Cruiser" to listOf("4,0", "4,1", "4,2"),
+            "Submarine" to listOf("6,0", "6,1", "6,2"),
+            "Destroyer" to listOf("8,0", "8,1")
+        )
+
+        // Initialize ships for both players
+        database.child("games").child(gameId).child("players").child(playerId).child("ships").setValue(ships)
+        database.child("games").child(gameId).child("players").child(opponentId).child("ships").setValue(ships)
+
+        Log.d("GameModel", "Initialized game $gameId with ships for $playerId and $opponentId")
+    }
+
 }
