@@ -14,16 +14,12 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
-import com.google.firebase.database.FirebaseDatabase
 
 @Composable
 fun LobbyScreen(navController: NavController, model: GameModel, username: String, maxPlayers: Int) {
-    val players by model.playerMap.collectAsStateWithLifecycle()
     val games by model.gameMap.collectAsStateWithLifecycle()
-    val database = FirebaseDatabase.getInstance().reference.child("games")
     var lobbyName by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
-    val localPlayerId = model.localPlayerId.collectAsStateWithLifecycle().value
     val context = LocalContext.current
 
     Column(
@@ -47,31 +43,14 @@ fun LobbyScreen(navController: NavController, model: GameModel, username: String
         Button(
             onClick = {
                 isLoading = true
-                val newGameId = database.push().key.orEmpty()
-
-                if (lobbyName.isBlank()) {
-                    println("Lobby name cannot be empty!")
+                val newGameId = model.createGame(lobbyName, username, maxPlayers) { errorMessage ->
+                    Toast.makeText(context, errorMessage, Toast.LENGTH_SHORT).show()
                     isLoading = false
-                    return@Button
                 }
-
-                val newGameData = mapOf(
-                    "name" to lobbyName,
-                    "host" to username,
-                    "status" to "waiting",
-                    "players" to mapOf(username to true) // Add the creator to the players list
-                )
-
-                database.child(newGameId).setValue(newGameData)
-                    .addOnSuccessListener {
-                        println("Game created successfully with ID: $newGameId")
-                        isLoading = false
-                        navController.navigate("game_lobby/$newGameId")
-                    }
-                    .addOnFailureListener { error ->
-                        println("Error creating game: ${error.message}")
-                        isLoading = false
-                    }
+                if (newGameId != null) {
+                    isLoading = false
+                    navController.navigate("game_lobby/$newGameId")
+                }
             },
             modifier = Modifier.fillMaxWidth(),
             enabled = !isLoading
@@ -86,7 +65,7 @@ fun LobbyScreen(navController: NavController, model: GameModel, username: String
         } else {
             Text("Available Games")
             LazyColumn {
-                items(games.toList()) { (gameId, game) ->
+                items(games.entries.toList()) { (gameId, game) ->
                     ListItem(
                         headlineContent = { Text(game.name) },
                         supportingContent = {
@@ -95,7 +74,6 @@ fun LobbyScreen(navController: NavController, model: GameModel, username: String
                         trailingContent = {
                             Button(
                                 onClick = {
-                                    // Call joinGame from GameModel
                                     model.joinGame(
                                         gameId = gameId,
                                         username = username,
@@ -107,7 +85,7 @@ fun LobbyScreen(navController: NavController, model: GameModel, username: String
                                         }
                                     )
                                 },
-                                enabled = game.players.size < maxPlayers // Disable if full
+                                enabled = game.players.size < maxPlayers
                             ) {
                                 Text("Join")
                             }

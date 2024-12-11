@@ -10,20 +10,25 @@ import com.example.battleshipsgroup25.ui.theme.Battleshipsgroup25Theme
 import com.google.firebase.FirebaseApp
 import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.database.DataSnapshot
+import com.google.firebase.database.DatabaseError
+import com.google.firebase.database.DatabaseException
+import com.google.firebase.database.Logger
+import com.google.firebase.database.ValueEventListener
 
 class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        FirebaseApp.initializeApp(this)
-
         super.onCreate(savedInstanceState)
+
+        FirebaseApp.initializeApp(this)
+        FirebaseDatabase.getInstance().setLogLevel(Logger.Level.DEBUG)
+
         setContent {
             Battleshipsgroup25Theme {
                 val navController = rememberNavController()
                 val gameModel = remember { GameModel() }
-                val database = FirebaseDatabase.getInstance().reference
 
-                // In your MainActivity or application initialization code
                 FirebaseAuth.getInstance().signInAnonymously()
                     .addOnCompleteListener { task ->
                         if (task.isSuccessful) {
@@ -33,34 +38,11 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                // Test Firebase connection
-                try {
-                    database.child("test").setValue("Firebase connected!")
-                        .addOnSuccessListener {
-                            Log.d("FirebaseTest", "Connection successful!")
-                        }
-                        .addOnFailureListener {
-                            Log.e("FirebaseTest", "Connection failed: ${it.message}")
-                        }
-                } catch (e: Exception) {
-                    Log.e("FirebaseTest", "Unexpected error: ${e.message}")
-                }
-
-                // Initialize listeners
-                try {
-                    gameModel.initListeners()
-                } catch (e: Exception) {
-                    Log.e("GameModelInit", "Error initializing listeners: ${e.message}")
-                }
-
-                // Initialize NavGraph
-                NavGraph(
-                    navController = navController,
-                    model = gameModel,
-                    username = "" // Username will be dynamically set in the navigation
-                )
+                NavGraph(navController, gameModel, username = "", playerId = "")
             }
         }
     }
 }
+
+
 

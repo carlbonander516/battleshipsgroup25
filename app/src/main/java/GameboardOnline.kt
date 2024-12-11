@@ -19,16 +19,15 @@ import com.google.firebase.database.*
 
 // Function to parse ships from Firebase data
 fun parseShipsFromData(shipsData: Map<String, List<String>>?): List<Ship> {
-    Log.d("parseShipsFromData", "Input Ships Data: $shipsData")
     return shipsData?.map { (name, positions) ->
         val parsedPositions = positions.map { position ->
             val coords = position.split(",")
             Pair(coords[0].toInt(), coords[1].toInt())
         }
-        Log.d("parseShipsFromData", "Parsed Ship: $name with positions $parsedPositions")
-        Ship(name = name, length = parsedPositions.size, positions = parsedPositions)
+        Ship(name, parsedPositions.size, parsedPositions)
     } ?: emptyList()
 }
+
 
 
 @Composable
@@ -96,23 +95,19 @@ fun GameboardOnline(
     Log.d("GameboardOnline", "Full Game Data: ${gameData.value}")
 
 
-    fun handleCellClick(row: Int, col: Int) {
-        if (turn.value != playerId || gameOver.value) return
+    fun handleCellClick(row: Int, col: Int, turn: String, playerId: String, gameOver: Boolean, gameRef: DatabaseReference, opponentGridHits: MutableList<Pair<Int, Int>>, opponentGridMisses: MutableList<Pair<Int, Int>>) {
+        if (turn != playerId || gameOver) return
 
-        val cellKey = "$row,$col"
-        val opponentData = (gameData.value["players"] as? Map<*, *>)?.get(opponentId) as? Map<*, *>
-        val shipsData = opponentData?.get("ships") as? Map<String, List<String>>
-        val hit = shipsData?.values?.flatten()?.contains(cellKey) == true
+        val cellKey = sanitizeKey("$row,$col")
 
-        val updatePath = if (hit) "hits/$playerId" else "misses/$playerId"
-        gameRef.child(updatePath).push().setValue(cellKey).addOnSuccessListener {
-            if (hit) {
+        gameRef.child("hits/$playerId").push().setValue(cellKey).addOnSuccessListener {
+            if (true) { // Replace with actual hit condition
                 opponentGridHits.add(Pair(row, col))
-                checkWinCondition()
             } else {
                 opponentGridMisses.add(Pair(row, col))
             }
-            updateTurn()
+        }.addOnFailureListener {
+            Log.e("handleCellClick", "Error updating cell click: ${it.message}")
         }
     }
 
@@ -185,7 +180,7 @@ fun GameboardOnline(
                     size = 10,
                     ships = opponentShips,
                     selectedShip = remember { mutableStateOf(null) },
-                    onCellClick = { row, col -> handleCellClick(row, col) },
+                    onCellClick = { _, _ -> },
                     onCellLongClick = { _, _ -> },
                     highlights = opponentGridHits,
                     misses = opponentGridMisses,
