@@ -14,6 +14,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
+import com.google.firebase.firestore.FirebaseFirestore
 
 @Composable
 fun LobbyScreen(navController: NavController, model: GameModel, username: String, maxPlayers: Int) {
@@ -21,6 +22,8 @@ fun LobbyScreen(navController: NavController, model: GameModel, username: String
     var lobbyName by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
     val context = LocalContext.current
+    FirebaseFirestore.getInstance().collection("test").document("testDoc").set(mapOf("status" to "Connected!"))
+
 
     Column(
         modifier = Modifier

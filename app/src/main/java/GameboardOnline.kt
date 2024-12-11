@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import com.google.firebase.database.*
+import com.google.firebase.firestore.FirebaseFirestore
 
 // Function to parse ships from Firebase data
 fun parseShipsFromData(shipsData: Map<String, List<String>>?): List<Ship> {
@@ -37,8 +38,17 @@ fun GameboardOnline(
     playerId: String,
     model: GameModel = viewModel()
 ) {
-    val database = FirebaseDatabase.getInstance().reference
-    val gameRef = database.child("games").child(gameId)
+    val firestore = FirebaseFirestore.getInstance()
+    val gameRef = firestore.collection("games").document(gameId)
+    gameRef.addSnapshotListener { document, e ->
+        if (e != null) {
+            Log.e("GameboardOnline", "Error loading game data: ${e.message}")
+            return@addSnapshotListener
+        }
+        val gameData = document?.data ?: emptyMap<String, Any>()
+        // handle gameData
+    }
+
 
     val turn = remember { mutableStateOf("player1") }
     val gameOver = remember { mutableStateOf(false) }
@@ -51,29 +61,28 @@ fun GameboardOnline(
 
     val gameData = remember { mutableStateOf<Map<String, Any?>>(emptyMap()) }
 
-    DisposableEffect(gameId) {
-        val listener = object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val value = snapshot.value
-                if (value is Map<*, *>) {
-                    @Suppress("UNCHECKED_CAST")
-                    gameData.value = value as Map<String, Any?>
-                    turn.value = gameData.value["turn"] as? String ?: "player1"
-                    gameOver.value = gameData.value["gameOver"] as? Boolean ?: false
-                    winner.value = gameData.value["winner"] as? String ?: ""
-                } else {
-                    gameData.value = emptyMap()
-                }
-            }
 
-            override fun onCancelled(error: DatabaseError) {
-                Log.e("GameboardOnline", "Error loading game data: ${error.message}")
+    DisposableEffect(gameId) {
+        val listener = gameRef.addSnapshotListener { snapshot, e ->
+            if (e != null) {
+                Log.e("GameboardOnline", "Error loading game data: ${e.message}")
+                return@addSnapshotListener
+            }
+            if (snapshot != null && snapshot.exists()) {
+                val data = snapshot.data ?: emptyMap<String, Any?>()
+                gameData.value = data
+                turn.value = data["turn"] as? String ?: "player1"
+                gameOver.value = data["gameOver"] as? Boolean ?: false
+                winner.value = data["winner"] as? String ?: ""
+            } else {
+                gameData.value = emptyMap()
             }
         }
-        gameRef.addValueEventListener(listener)
-        onDispose { gameRef.removeEventListener(listener) }
+
+        onDispose { listener.remove() }
     }
 
+/*
     fun checkWinCondition() {
         val opponentData = (gameData.value["players"] as? Map<*, *>)?.get(opponentId) as? Map<*, *>
         val shipsData = opponentData?.get("ships") as? Map<String, List<String>>
@@ -86,11 +95,12 @@ fun GameboardOnline(
             gameRef.child("winner").setValue(playerId)
         }
     }
-
+*/
     fun updateTurn() {
         val nextTurn = if (turn.value == "player1") "player2" else "player1"
-        gameRef.child("turn").setValue(nextTurn)
+        gameRef.update("turn", nextTurn)
     }
+
 
     Log.d("GameboardOnline", "Full Game Data: ${gameData.value}")
 

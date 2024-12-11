@@ -33,8 +33,6 @@ fun createLobby(
             Log.e("FirebaseTest", "Database connection failed: ${error.message}")
         }
 
-    FirebaseDatabase.getInstance().setLogLevel(Logger.Level.DEBUG)
-
 
     val sanitizedGameId = sanitizeKey(gameId)
     val sanitizedLobbyName = sanitizeKey(lobbyName)
@@ -57,7 +55,6 @@ fun createLobby(
             Log.e("Firebase", errorMessage)
             onError(errorMessage)
         }
-    FirebaseDatabase.getInstance().setLogLevel(Logger.Level.DEBUG)
 
 }
 
@@ -84,7 +81,7 @@ fun GameLobbyScreen(
             label = { Text("Lobby Name") },
             modifier = Modifier.fillMaxWidth()
         )
-        FirebaseDatabase.getInstance().setLogLevel(Logger.Level.DEBUG)
+
 
         FirebaseDatabase.getInstance().reference.child("test").setValue("Connected!")
             .addOnSuccessListener {
@@ -98,7 +95,7 @@ fun GameLobbyScreen(
             onClick = {
                 if (lobbyName.isBlank()) {
                     Log.e("GameLobbyScreen", "Lobby name is empty!")
-                    FirebaseDatabase.getInstance().setLogLevel(Logger.Level.DEBUG)
+
                     return@Button
                 }
 

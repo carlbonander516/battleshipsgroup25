@@ -22,7 +22,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         FirebaseApp.initializeApp(this)
-        FirebaseDatabase.getInstance().setLogLevel(Logger.Level.DEBUG)
+        //FirebaseDatabase.getInstance().setLogLevel(Logger.Level.DEBUG)
 
         setContent {
             Battleshipsgroup25Theme {

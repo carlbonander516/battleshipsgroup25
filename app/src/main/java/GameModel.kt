@@ -3,38 +3,45 @@ package com.example.battleshipsgroup25
 import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import com.google.firebase.database.*
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.FirebaseFirestoreException
+import com.google.firebase.firestore.QuerySnapshot
+
 
 class GameModel {
-    private val database = FirebaseDatabase.getInstance().reference
+    private val firestore = FirebaseFirestore.getInstance() // Initialize Firestore
     private val _gameMap = MutableStateFlow<Map<String, Game>>(emptyMap())
     val gameMap: StateFlow<Map<String, Game>> get() = _gameMap
 
+    // Listener to track changes in the games collection
     fun initListeners() {
-        database.child("games").addValueEventListener(object : ValueEventListener {
-            override fun onDataChange(snapshot: DataSnapshot) {
-                val games = mutableMapOf<String, Game>()
-                snapshot.children.forEach { gameSnapshot ->
-                    val gameId = gameSnapshot.key ?: return@forEach
-
-                    val name = gameSnapshot.child("name").getValue(String::class.java) ?: "Unnamed"
-                    val players =
-                        gameSnapshot.child("players").getValue<Map<String, Boolean>>() ?: emptyMap()
-                    val status =
-                        gameSnapshot.child("status").getValue(String::class.java) ?: "waiting"
-                    val readyStatus =
-                        gameSnapshot.child("readyStatus").getValue(Boolean::class.java) ?: false
-
-                    games[gameId] = Game(name, players.size, players, readyStatus, status)
-                }
-                _gameMap.value = games
+        firestore.collection("games").addSnapshotListener { snapshots: QuerySnapshot?, e: FirebaseFirestoreException? ->
+            Log.d("GameModel", "Listener triggered")
+            if (e != null) {
+                Log.e("GameModel", "Error loading games: ${e.message}")
+                return@addSnapshotListener
             }
 
-            override fun onCancelled(error: DatabaseError) {
-                Log.e("GameModel", "Error loading games: ${error.message}")
+            Log.d("GameModel", "Processing snapshots")
+            val games = mutableMapOf<String, Game>()
+            snapshots?.documents?.forEach { gameDoc ->
+                Log.d("GameModel", "Processing game document: ${gameDoc.id}")
+                val gameId = gameDoc.id
+                val name = gameDoc.getString("name") ?: "Unnamed"
+                val players = gameDoc.get("players") as? Map<String, Boolean> ?: emptyMap()
+                val status = gameDoc.getString("status") ?: "waiting"
+                val readyStatus = gameDoc.getBoolean("readyStatus") ?: false
+
+                games[gameId] = Game(name, players.size, players, readyStatus, status)
             }
-        })
+            _gameMap.value = games
+            Log.d("GameModel", "Games updated: ${games.keys}")
+        }
     }
+
+
+
+    var isCreatingLobby = false
 
     fun createGame(
         lobbyName: String,
@@ -42,12 +49,14 @@ class GameModel {
         maxPlayers: Int,
         onError: (String) -> Unit
     ): String? {
-        if (lobbyName.isBlank()) {
-            onError("Lobby name cannot be empty!")
+        if (isCreatingLobby) {
+            Log.d("GameModel", "Lobby creation already in progress.")
             return null
         }
 
-        val newGameId = database.child("games").push().key.orEmpty()
+        isCreatingLobby = true
+
+        val newGameRef = firestore.collection("games").document()
 
         val newGameData = mapOf(
             "name" to lobbyName,
@@ -57,17 +66,20 @@ class GameModel {
             "players" to mapOf(username to true)
         )
 
-        database.child("games").child(newGameId).setValue(newGameData)
+        newGameRef.set(newGameData)
             .addOnSuccessListener {
-                Log.d("GameModel", "Game created successfully with ID: $newGameId")
+                isCreatingLobby = false
+                Log.d("GameModel", "Game created successfully with ID: ${newGameRef.id}")
             }
             .addOnFailureListener { error ->
+                isCreatingLobby = false
                 Log.e("GameModel", "Error creating game: ${error.message}")
                 onError("Error creating game: ${error.message}")
             }
 
-        return newGameId
+        return newGameRef.id
     }
+
 
     fun joinGame(
         gameId: String,
@@ -75,9 +87,9 @@ class GameModel {
         onError: (String) -> Unit,
         onSuccess: () -> Unit
     ) {
-        val gameRef = database.child("games").child(gameId)
+        val gameRef = firestore.collection("games").document(gameId)
 
-        gameRef.child("players").child(username).setValue(true)
+        gameRef.update("players.$username", true) // Update Firestore document with a nested field
             .addOnSuccessListener {
                 Log.d("GameModel", "Successfully joined game: $gameId")
                 onSuccess()
@@ -88,9 +100,11 @@ class GameModel {
             }
     }
 }
+
 fun sanitizeKey(key: String): String {
     return key.replace(Regex("[./#$\\[\\]]"), "_")
 }
+
 data class Game(
     val name: String,
     val playerCount: Int,
